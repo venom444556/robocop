@@ -1,0 +1,191 @@
+{
+  "name": "Malware Analysis - Enrichment",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "run-enrichment",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "enrichment-webhook",
+      "name": "Enrichment Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/api/webhooks/status-update",
+        "method": "POST",
+        "body": {
+          "submission_id": "={{ $json.submission_id }}",
+          "status": "enriching"
+        },
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "update-status-enriching",
+      "name": "Update Status: Enriching",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split IOCs into batches for parallel processing\nconst iocs = $input.first().json.iocs || [];\nconst submission_id = $input.first().json.submission_id;\n\n// Group by type\nconst ipIOCs = iocs.filter(i => i.type === 'ip').slice(0, 10);\nconst domainIOCs = iocs.filter(i => i.type === 'domain').slice(0, 10);\nconst hashIOCs = iocs.filter(i => i.type.startsWith('hash_')).slice(0, 10);\nconst urlIOCs = iocs.filter(i => i.type === 'url').slice(0, 10);\n\nreturn [\n  { json: { type: 'ip', iocs: ipIOCs, submission_id } },\n  { json: { type: 'domain', iocs: domainIOCs, submission_id } },\n  { json: { type: 'hash', iocs: hashIOCs, submission_id } },\n  { json: { type: 'url', iocs: urlIOCs, submission_id } }\n];"
+      },
+      "id": "split-iocs",
+      "name": "Split IOCs by Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "process-batches",
+      "name": "Process in Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equals",
+              "value2": "ip"
+            }
+          ]
+        }
+      },
+      "id": "is-ip",
+      "name": "Is IP?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 150]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enrich IPs via VirusTotal and Shodan\nconst iocs = $input.first().json.iocs;\nconst results = [];\n\nfor (const ioc of iocs) {\n  // These would be actual API calls in production\n  results.push({\n    ioc: ioc.value,\n    type: 'ip',\n    virustotal: { checked: true },\n    shodan: { checked: true }\n  });\n}\n\nreturn [{ json: { enrichment_results: results, submission_id: $input.first().json.submission_id } }];"
+      },
+      "id": "enrich-ips",
+      "name": "Enrich IPs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equals",
+              "value2": "hash"
+            }
+          ]
+        }
+      },
+      "id": "is-hash",
+      "name": "Is Hash?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enrich hashes via VirusTotal\nconst iocs = $input.first().json.iocs;\nconst results = [];\n\nfor (const ioc of iocs) {\n  results.push({\n    ioc: ioc.value,\n    type: 'hash',\n    virustotal: { checked: true }\n  });\n}\n\nreturn [{ json: { enrichment_results: results, submission_id: $input.first().json.submission_id } }];"
+      },
+      "id": "enrich-hashes",
+      "name": "Enrich Hashes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 250]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enrich domains and URLs\nconst iocs = $input.first().json.iocs;\nconst results = [];\n\nfor (const ioc of iocs) {\n  results.push({\n    ioc: ioc.value,\n    type: ioc.type,\n    virustotal: { checked: true },\n    urlhaus: { checked: true }\n  });\n}\n\nreturn [{ json: { enrichment_results: results, submission_id: $input.first().json.submission_id } }];"
+      },
+      "id": "enrich-domains-urls",
+      "name": "Enrich Domains/URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {},
+      "id": "merge-results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5678/webhook/run-reasoning",
+        "method": "POST",
+        "body": {
+          "submission_id": "={{ $json.submission_id }}",
+          "enrichment_data": "={{ $json }}"
+        }
+      },
+      "id": "trigger-reasoning",
+      "name": "Trigger Reasoning Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1650, 300]
+    }
+  ],
+  "connections": {
+    "Enrichment Webhook": {
+      "main": [[{ "node": "Update Status: Enriching", "type": "main", "index": 0 }]]
+    },
+    "Update Status: Enriching": {
+      "main": [[{ "node": "Split IOCs by Type", "type": "main", "index": 0 }]]
+    },
+    "Split IOCs by Type": {
+      "main": [[{ "node": "Process in Batches", "type": "main", "index": 0 }]]
+    },
+    "Process in Batches": {
+      "main": [
+        [{ "node": "Is IP?", "type": "main", "index": 0 }],
+        [{ "node": "Is Hash?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is IP?": {
+      "main": [
+        [{ "node": "Enrich IPs", "type": "main", "index": 0 }],
+        [{ "node": "Enrich Domains/URLs", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Hash?": {
+      "main": [
+        [{ "node": "Enrich Hashes", "type": "main", "index": 0 }]
+      ]
+    },
+    "Enrich IPs": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 0 }]]
+    },
+    "Enrich Hashes": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 1 }]]
+    },
+    "Enrich Domains/URLs": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 2 }]]
+    },
+    "Merge Results": {
+      "main": [[{ "node": "Trigger Reasoning Workflow", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

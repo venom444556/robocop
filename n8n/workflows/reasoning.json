@@ -1,0 +1,153 @@
+{
+  "name": "Malware Analysis - Claude Reasoning",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "run-reasoning",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "reasoning-webhook",
+      "name": "Reasoning Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/api/webhooks/status-update",
+        "method": "POST",
+        "body": {
+          "submission_id": "={{ $json.submission_id }}",
+          "status": "reasoning"
+        },
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "update-status-reasoning",
+      "name": "Update Status: Reasoning",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://backend:8000/api/webhooks/submission/{{ $json.submission_id }}/data",
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "get-full-data",
+      "name": "Get Full Analysis Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare data for Claude reasoning agent\nconst data = $input.first().json;\nconst submission = data.submission;\nconst analysisResults = data.analysis_results;\nconst iocs = data.iocs;\n\n// Build prompt context\nconst context = {\n  submission_type: submission.type,\n  filename: submission.filename,\n  url: submission.original_url,\n  hash: submission.file_hash_sha256,\n  analysis_summary: analysisResults.map(r => ({\n    analyzer: r.analyzer,\n    key_findings: r.results.summary || r.results.risk_level || 'No summary'\n  })),\n  ioc_summary: {\n    total: iocs.length,\n    by_type: iocs.reduce((acc, ioc) => {\n      acc[ioc.type] = (acc[ioc.type] || 0) + 1;\n      return acc;\n    }, {})\n  },\n  high_risk_iocs: iocs.filter(i => i.enrichment && i.enrichment.some(e => e.data && e.data.total_detections > 5)).slice(0, 10)\n};\n\nreturn [{ json: { submission_id: submission.id, context, full_data: data } }];"
+      },
+      "id": "prepare-context",
+      "name": "Prepare Reasoning Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "model": "claude-haiku-4-5-20241022",
+        "prompt": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "=Analyze this malware submission and provide:\n1. Threat assessment (severity, confidence)\n2. MITRE ATT&CK technique mapping\n3. Malware family identification (if possible)\n4. Key IOCs to prioritize\n5. Recommended defensive actions\n\nContext:\n{{ JSON.stringify($json.context, null, 2) }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 4096,
+          "systemMessage": "You are an expert malware analyst. Provide concise, actionable threat intelligence."
+        }
+      },
+      "id": "claude-reasoning",
+      "name": "Claude Reasoning",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "anthropicApi": {
+          "id": "anthropic-api",
+          "name": "Anthropic API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/api/webhooks/analysis-complete",
+        "method": "POST",
+        "body": {
+          "submission_id": "={{ $('Prepare Reasoning Context').item.json.submission_id }}",
+          "analyzer": "claude_reasoning",
+          "results": {
+            "reasoning_output": "={{ $json.message.content }}",
+            "model": "claude-haiku-4-5-20241022"
+          }
+        },
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "store-reasoning",
+      "name": "Store Reasoning Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5678/webhook/generate-report",
+        "method": "POST",
+        "body": {
+          "submission_id": "={{ $('Prepare Reasoning Context').item.json.submission_id }}"
+        }
+      },
+      "id": "trigger-reporting",
+      "name": "Trigger Report Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1450, 300]
+    }
+  ],
+  "connections": {
+    "Reasoning Webhook": {
+      "main": [[{ "node": "Update Status: Reasoning", "type": "main", "index": 0 }]]
+    },
+    "Update Status: Reasoning": {
+      "main": [[{ "node": "Get Full Analysis Data", "type": "main", "index": 0 }]]
+    },
+    "Get Full Analysis Data": {
+      "main": [[{ "node": "Prepare Reasoning Context", "type": "main", "index": 0 }]]
+    },
+    "Prepare Reasoning Context": {
+      "main": [[{ "node": "Claude Reasoning", "type": "main", "index": 0 }]]
+    },
+    "Claude Reasoning": {
+      "main": [[{ "node": "Store Reasoning Results", "type": "main", "index": 0 }]]
+    },
+    "Store Reasoning Results": {
+      "main": [[{ "node": "Trigger Report Generation", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "name": "Malware Analysis - Analysis Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "run-analysis",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "analysis-webhook",
+      "name": "Analysis Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://backend:8000/api/webhooks/submission/{{ $json.submission_id }}/data",
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "fetch-submission",
+      "name": "Fetch Submission",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/api/webhooks/status-update",
+        "method": "POST",
+        "body": {
+          "submission_id": "={{ $json.submission.id }}",
+          "status": "analyzing"
+        },
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "update-status-analyzing",
+      "name": "Update Status: Analyzing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract IOCs from analysis results\nconst analysisResults = $input.all();\nconst iocs = [];\n\nfor (const item of analysisResults) {\n  const results = item.json.analysis_results || [];\n  for (const result of results) {\n    if (result.results && result.results.iocs) {\n      iocs.push(...result.results.iocs);\n    }\n  }\n}\n\nreturn [{ json: { iocs, submission_id: analysisResults[0].json.submission.id } }];"
+      },
+      "id": "extract-iocs",
+      "name": "Extract IOCs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/api/webhooks/analysis-complete",
+        "method": "POST",
+        "body": {
+          "submission_id": "={{ $json.submission_id }}",
+          "analyzer": "ioc_extractor",
+          "results": "={{ $json }}",
+          "iocs": "={{ $json.iocs }}"
+        },
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "store-analysis",
+      "name": "Store Analysis Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5678/webhook/run-enrichment",
+        "method": "POST",
+        "body": {
+          "submission_id": "={{ $json.submission_id }}",
+          "iocs": "={{ $json.iocs }}"
+        }
+      },
+      "id": "trigger-enrichment",
+      "name": "Trigger Enrichment Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "Analysis Webhook": {
+      "main": [[{ "node": "Fetch Submission", "type": "main", "index": 0 }]]
+    },
+    "Fetch Submission": {
+      "main": [[{ "node": "Update Status: Analyzing", "type": "main", "index": 0 }]]
+    },
+    "Update Status: Analyzing": {
+      "main": [[{ "node": "Extract IOCs", "type": "main", "index": 0 }]]
+    },
+    "Extract IOCs": {
+      "main": [[{ "node": "Store Analysis Results", "type": "main", "index": 0 }]]
+    },
+    "Store Analysis Results": {
+      "main": [[{ "node": "Trigger Enrichment Workflow", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

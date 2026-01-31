@@ -1,0 +1,166 @@
+{
+  "name": "Malware Analysis - Ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analysis-trigger",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://backend:8000/api/webhooks/submission/{{ $json.submission_id }}/data",
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "get-submission",
+      "name": "Get Submission Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.submission.type }}",
+              "operation": "equals",
+              "value2": "file"
+            }
+          ]
+        }
+      },
+      "id": "check-type-file",
+      "name": "Is File?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.submission.type }}",
+              "operation": "equals",
+              "value2": "url"
+            }
+          ]
+        }
+      },
+      "id": "check-type-url",
+      "name": "Is URL?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/api/analysis/{{ $json.submission.id }}/trigger",
+        "method": "POST",
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "trigger-file-analysis",
+      "name": "Trigger File Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 150]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/api/analysis/{{ $json.submission.id }}/trigger",
+        "method": "POST",
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "trigger-url-analysis",
+      "name": "Trigger URL Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 350]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/api/analysis/{{ $json.submission.id }}/trigger",
+        "method": "POST",
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "trigger-sandbox-analysis",
+      "name": "Trigger Sandbox Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'analysis_triggered', submission_id: $json.submission.id }) }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [{ "node": "Get Submission Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Submission Data": {
+      "main": [
+        [
+          { "node": "Is File?", "type": "main", "index": 0 },
+          { "node": "Is URL?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Is File?": {
+      "main": [
+        [{ "node": "Trigger File Analysis", "type": "main", "index": 0 }],
+        [{ "node": "Trigger Sandbox Analysis", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is URL?": {
+      "main": [
+        [{ "node": "Trigger URL Analysis", "type": "main", "index": 0 }]
+      ]
+    },
+    "Trigger File Analysis": {
+      "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]
+    },
+    "Trigger URL Analysis": {
+      "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]
+    },
+    "Trigger Sandbox Analysis": {
+      "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "name": "Malware Analysis - Report Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-report",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "report-webhook",
+      "name": "Report Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://backend:8000/api/webhooks/submission/{{ $json.submission_id }}/data",
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "get-all-data",
+      "name": "Get All Analysis Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "model": "claude-haiku-4-5-20241022",
+        "prompt": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "=Generate a professional malware analysis report for this submission.\n\nInclude:\n1. Executive Summary (2-3 paragraphs for leadership)\n2. Technical Analysis Details\n3. IOC Table (formatted markdown)\n4. MITRE ATT&CK Mapping\n5. Recommendations\n\nData:\n{{ JSON.stringify($json, null, 2) }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 8192,
+          "systemMessage": "You are a technical writer specializing in malware analysis reports. Create clear, professional, actionable reports."
+        }
+      },
+      "id": "generate-report-content",
+      "name": "Generate Report Content",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "anthropicApi": {
+          "id": "anthropic-api",
+          "name": "Anthropic API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/api/reports/{{ $('Get All Analysis Data').item.json.submission.id }}/generate",
+        "method": "POST",
+        "body": {
+          "format": "json"
+        },
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "generate-json-report",
+      "name": "Generate JSON Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/api/reports/{{ $('Get All Analysis Data').item.json.submission.id }}/generate",
+        "method": "POST",
+        "body": {
+          "format": "html"
+        },
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "generate-html-report",
+      "name": "Generate HTML Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/api/webhooks/status-update",
+        "method": "POST",
+        "body": {
+          "submission_id": "={{ $('Get All Analysis Data').item.json.submission.id }}",
+          "status": "complete"
+        },
+        "options": {
+          "headers": {
+            "X-API-Key": "={{ $env.API_KEY }}"
+          }
+        }
+      },
+      "id": "mark-complete",
+      "name": "Mark Analysis Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5678/webhook/send-notification",
+        "method": "POST",
+        "body": {
+          "submission_id": "={{ $('Get All Analysis Data').item.json.submission.id }}",
+          "status": "complete",
+          "report_available": true
+        }
+      },
+      "id": "trigger-notification",
+      "name": "Trigger Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "Report Webhook": {
+      "main": [[{ "node": "Get All Analysis Data", "type": "main", "index": 0 }]]
+    },
+    "Get All Analysis Data": {
+      "main": [[{ "node": "Generate Report Content", "type": "main", "index": 0 }]]
+    },
+    "Generate Report Content": {
+      "main": [
+        [
+          { "node": "Generate JSON Report", "type": "main", "index": 0 },
+          { "node": "Generate HTML Report", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Generate JSON Report": {
+      "main": [[{ "node": "Mark Analysis Complete", "type": "main", "index": 0 }]]
+    },
+    "Generate HTML Report": {
+      "main": [[{ "node": "Mark Analysis Complete", "type": "main", "index": 0 }]]
+    },
+    "Mark Analysis Complete": {
+      "main": [[{ "node": "Trigger Notification", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
