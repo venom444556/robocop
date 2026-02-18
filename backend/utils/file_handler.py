@@ -2,10 +2,13 @@
 
 import os
 import hashlib
+import logging
 import mimetypes
 from typing import Dict, Optional, Tuple
 from datetime import datetime
 import aiofiles
+
+logger = logging.getLogger(__name__)
 
 
 class FileHandler:
@@ -216,10 +219,9 @@ class FileHandler:
             import magic
             result['magic_type'] = magic.from_buffer(content[:2048])
         except ImportError:
-            # python-magic not available
-            pass
+            logger.debug("python-magic not available, skipping magic byte detection")
         except Exception:
-            pass
+            logger.warning("Failed to detect file type using magic bytes", exc_info=True)
 
         return result
 

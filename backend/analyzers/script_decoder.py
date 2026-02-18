@@ -1,11 +1,14 @@
 """Script decoder for various encoding/obfuscation techniques."""
 
 import base64
+import logging
 import re
 import zlib
 import codecs
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -137,6 +140,7 @@ class ScriptDecoder:
                     "confidence": 0.95
                 }
             except Exception:
+                logger.debug("Failed to decode PowerShell encoded command block", exc_info=True)
                 continue
 
         return None, {}
@@ -172,8 +176,10 @@ class ScriptDecoder:
                                     "confidence": 0.9
                                 }
                         except Exception:
+                            logger.debug("Base64 block decode failed with encoding '%s'", encoding)
                             continue
                 except Exception:
+                    logger.debug("Base64 block decode failed for candidate string", exc_info=True)
                     continue
 
         return None, {}
@@ -204,7 +210,7 @@ class ScriptDecoder:
                             "confidence": 0.85
                         }
                 except Exception:
-                    pass
+                    logger.debug("Failed to decode char array sequence", exc_info=True)
             return None, {}
 
         return None, {}
@@ -228,7 +234,7 @@ class ScriptDecoder:
                         "confidence": 0.85
                     }
             except Exception:
-                pass
+                logger.debug("Failed to decode VBScript Chr() sequence", exc_info=True)
 
         return None, {}
 
@@ -253,6 +259,7 @@ class ScriptDecoder:
                         "confidence": 0.9
                     }
             except Exception:
+                logger.debug("Failed unicode_escape decode, trying URL decoding", exc_info=True)
                 # Try URL decoding
                 try:
                     from urllib.parse import unquote
@@ -265,6 +272,7 @@ class ScriptDecoder:
                             "confidence": 0.85
                         }
                 except Exception:
+                    logger.debug("URL decoding also failed for JS unescape block", exc_info=True)
                     continue
 
         return None, {}
@@ -301,7 +309,7 @@ class ScriptDecoder:
                             "confidence": 0.9
                         }
                 except Exception:
-                    pass
+                    logger.debug("Gzip decompression failed for candidate block")
 
                 # Try deflate
                 try:
@@ -315,9 +323,10 @@ class ScriptDecoder:
                             "confidence": 0.9
                         }
                 except Exception:
-                    pass
+                    logger.debug("Deflate decompression failed for candidate block")
 
             except Exception:
+                logger.debug("Failed to decode compressed content block", exc_info=True)
                 continue
 
         return None, {}

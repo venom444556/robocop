@@ -1,6 +1,26 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: malware-analysis-postgres
+    environment:
+      - POSTGRES_DB=malware_analysis
+      - POSTGRES_USER=malware
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-malware_dev_only}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - malware-analysis-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U malware -d malware_analysis"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: .
@@ -9,7 +29,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:///./data/malware_analysis.db
+      - DATABASE_URL=postgresql+asyncpg://malware:${POSTGRES_PASSWORD:-malware_dev_only}@postgres:5432/malware_analysis
       - UPLOAD_DIR=/app/uploads
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY}
@@ -23,12 +43,21 @@ services:
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
       - API_KEY=${API_KEY:-change-this-in-production}
+      - DEBUG=${DEBUG:-true}
       - N8N_WEBHOOK_BASE_URL=http://n8n:5678/webhook
+      - NVD_API_KEY=${NVD_API_KEY}
+      - DEFAULT_TLP_MARKING=${DEFAULT_TLP_MARKING:-TLP:AMBER}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
+      - ./data/mitre_cache:/app/data/mitre_cache
+      - ./data/threat_archive:/app/data/threat_archive
     depends_on:
-      - n8n
+      postgres:
+        condition: service_healthy
+      n8n:
+        condition: service_started
     networks:
       - malware-analysis-net
     restart: unless-stopped
@@ -46,8 +75,12 @@ services:
       - malware-analysis-net
     restart: unless-stopped
 
+  # n8n Community Edition (free, Sustainable Use License)
+  # Pinned for reproducibility — update quarterly
+  # Changelog: https://github.com/n8n-io/n8n/releases
+  # NOTE: n8nio/n8n = community edition; n8nio/n8n-enterprise = paid enterprise
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:1.76.1
     container_name: malware-analysis-n8n
     ports:
       - "5678:5678"
@@ -68,8 +101,49 @@ services:
       - malware-analysis-net
     restart: unless-stopped
 
+  # ── All-in-One Container (single-container deployment) ───────────────────
+  # Usage: docker compose --profile allinone up -d allinone
+  # Runs PostgreSQL, FastAPI, n8n, and Nginx in a single container via supervisord
+  allinone:
+    profiles: ["allinone"]
+    build:
+      context: .
+      dockerfile: Dockerfile.allinone
+    container_name: malware-analysis-allinone
+    ports:
+      - "3000:80"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - API_KEY=${API_KEY:-change-this-in-production}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-malware_dev_only}
+      - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY}
+      - SHODAN_API_KEY=${SHODAN_API_KEY}
+      - URLHAUS_AUTH_KEY=${URLHAUS_AUTH_KEY}
+      - GOOGLE_SAFEBROWSING_API_KEY=${GOOGLE_SAFEBROWSING_API_KEY}
+      - CHECKPHISH_API_KEY=${CHECKPHISH_API_KEY}
+      - IPQUALITYSCORE_API_KEY=${IPQUALITYSCORE_API_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - NVD_API_KEY=${NVD_API_KEY}
+      - DEFAULT_TLP_MARKING=${DEFAULT_TLP_MARKING:-TLP:AMBER}
+      - N8N_USER=${N8N_USER:-admin}
+      - N8N_PASSWORD=${N8N_PASSWORD:-change-this}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-change-this-key}
+      - DEBUG=${DEBUG:-false}
+    volumes:
+      - allinone_pgdata:/var/lib/postgresql/16/main
+      - allinone_n8n:/home/n8n/.n8n
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+
 volumes:
+  postgres_data:
   n8n_data:
+  allinone_pgdata:
+  allinone_n8n:
 
 networks:
   malware-analysis-net:

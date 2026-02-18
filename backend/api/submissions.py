@@ -102,7 +102,7 @@ async def trigger_analysis_workflow(submission_id: int):
                 timeout=10.0
             )
     except Exception as e:
-        print(f"Failed to trigger n8n workflow: {e}")
+        logger.error("Failed to trigger n8n workflow", exc_info=True)
 
 
 @router.post("/file", response_model=SubmissionResponse)

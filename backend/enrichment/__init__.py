@@ -7,6 +7,7 @@ from .google_safebrowsing import GoogleSafeBrowsingClient
 from .unshorten import UnshortenClient
 from .checkphish import CheckPhishClient
 from .ipqualityscore import IPQualityScoreClient
+from .nvd import NVDClient
 
 __all__ = [
     "VirusTotalClient",
@@ -15,5 +16,6 @@ __all__ = [
     "GoogleSafeBrowsingClient",
     "UnshortenClient",
     "CheckPhishClient",
-    "IPQualityScoreClient"
+    "IPQualityScoreClient",
+    "NVDClient"
 ]

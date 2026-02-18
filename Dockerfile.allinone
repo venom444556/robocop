@@ -1,0 +1,81 @@
+# All-in-One Dockerfile — Single container running the full platform
+# Uses n8n Community Edition (free, Sustainable Use License)
+# Services managed by supervisord: PostgreSQL 16, FastAPI, n8n 1.76.1, Nginx
+#
+# Build:  docker compose --profile allinone build allinone
+# Run:    docker compose --profile allinone up -d allinone
+# Access: http://localhost:3000
+
+FROM debian:bookworm-slim AS base
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+
+# ── System packages ──────────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # PostgreSQL 16
+    postgresql-16 postgresql-client-16 \
+    # Python 3.11 (default in bookworm)
+    python3 python3-pip python3-venv \
+    # Nginx + Supervisor
+    nginx supervisor \
+    # Node.js 20 prerequisites
+    curl ca-certificates gnupg \
+    # Backend system deps (from Dockerfile.backend)
+    gcc libmagic1 libpango-1.0-0 libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0 libffi-dev shared-mime-info \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Node.js 20 LTS (required for n8n) ───────────────────────────────────────
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── n8n Community Edition (pinned) ──────────────────────────────────────────
+RUN npm install -g n8n@1.76.1 --ignore-scripts \
+    && npm cache clean --force
+
+# ── Create n8n user ─────────────────────────────────────────────────────────
+RUN useradd -r -m -d /home/n8n -s /bin/bash n8n
+
+# ── Python dependencies ─────────────────────────────────────────────────────
+WORKDIR /app
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+
+# ── Frontend build ──────────────────────────────────────────────────────────
+WORKDIR /build-frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build \
+    && cp -r dist/* /usr/share/nginx/html/ \
+    && rm -rf /build-frontend
+
+# ── Backend code ────────────────────────────────────────────────────────────
+WORKDIR /app
+COPY backend/ ./
+
+# ── n8n workflows ───────────────────────────────────────────────────────────
+COPY n8n/workflows/ /opt/n8n/workflows/
+
+# ── Configuration files ─────────────────────────────────────────────────────
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY nginx-allinone.conf /etc/nginx/conf.d/default.conf
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Remove default nginx site
+RUN rm -f /etc/nginx/sites-enabled/default
+
+# ── Data directories ────────────────────────────────────────────────────────
+RUN mkdir -p /app/data /app/uploads /app/data/mitre_cache /app/data/threat_archive \
+    && mkdir -p /home/n8n/.n8n \
+    && chown -R n8n:n8n /home/n8n \
+    && mkdir -p /run/postgresql \
+    && chown -R postgres:postgres /run/postgresql \
+    && mkdir -p /var/log/supervisor
+
+EXPOSE 80
+
+ENTRYPOINT ["/docker-entrypoint.sh"]

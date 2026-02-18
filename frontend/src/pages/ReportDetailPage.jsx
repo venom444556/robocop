@@ -10,21 +10,58 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
-  ExternalLink
+  ExternalLink,
+  Search,
+  FileText,
+  Target,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { useState } from 'react'
 import { analysisApi, reportsApi, submissionsApi } from '../api/client'
+import SeverityBadge from '../components/SeverityBadge'
 
 const riskColors = {
   critical: 'text-red-600 bg-red-100',
   high: 'text-orange-600 bg-orange-100',
   medium: 'text-yellow-600 bg-yellow-100',
   low: 'text-green-600 bg-green-100',
+  informational: 'text-blue-600 bg-blue-100',
   minimal: 'text-gray-600 bg-gray-100',
+}
+
+const severityColors = {
+  critical: 'bg-red-600 text-white',
+  high: 'bg-orange-500 text-white',
+  medium: 'bg-yellow-500 text-white',
+  low: 'bg-green-500 text-white',
+  informational: 'bg-blue-500 text-white',
+}
+
+const confidenceColors = {
+  high: 'text-green-700 bg-green-100',
+  medium: 'text-yellow-700 bg-yellow-100',
+  low: 'text-red-700 bg-red-100',
+}
+
+const tlpColors = {
+  'TLP:WHITE': 'bg-gray-100 text-gray-800 border-gray-300',
+  'TLP:GREEN': 'bg-green-100 text-green-800 border-green-400',
+  'TLP:AMBER': 'bg-amber-100 text-amber-800 border-amber-400',
+  'TLP:RED': 'bg-red-100 text-red-800 border-red-400',
+}
+
+const priorityColors = {
+  P1: 'bg-red-100 text-red-700 border-red-300',
+  P2: 'bg-orange-100 text-orange-700 border-orange-300',
+  P3: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+  P4: 'bg-gray-100 text-gray-700 border-gray-300',
 }
 
 function ReportDetailPage() {
   const { id } = useParams()
+  const [expandedPriorities, setExpandedPriorities] = useState({ P1: true, P2: true, P3: false, P4: false })
 
   const { data: submission, isLoading: loadingSubmission } = useQuery({
     queryKey: ['submission', id],
@@ -37,7 +74,29 @@ function ReportDetailPage() {
     enabled: !!submission,
   })
 
+  const { data: mitreValidation } = useQuery({
+    queryKey: ['mitre-validation', id],
+    queryFn: () => analysisApi.getMitreValidation(id),
+    enabled: !!analysis,
+  })
+
+  const { data: investigationPlan } = useQuery({
+    queryKey: ['investigation-plan', id],
+    queryFn: () => analysisApi.getInvestigationPlan(id),
+    enabled: !!analysis,
+  })
+
+  const { data: threatHunt } = useQuery({
+    queryKey: ['threat-hunt', id],
+    queryFn: () => analysisApi.getThreatHunt(id),
+    enabled: !!analysis,
+  })
+
   const isLoading = loadingSubmission || loadingAnalysis
+
+  const togglePriority = (priority) => {
+    setExpandedPriorities(prev => ({ ...prev, [priority]: !prev[priority] }))
+  }
 
   if (isLoading) {
     return (
@@ -64,17 +123,50 @@ function ReportDetailPage() {
   const urlAnalysis = analysis?.analysis_results?.find(r => r.analyzer === 'url_analyzer')
   const sandboxAnalysis = analysis?.analysis_results?.find(r => r.analyzer === 'sandbox_parser')
   const decodingResult = analysis?.analysis_results?.find(r => r.analyzer === 'script_decoder')
+  const nvdEnrichment = analysis?.analysis_results?.find(r => r.analyzer === 'nvd_enrichment')
 
   const riskLevel = scriptAnalysis?.results_json?.risk_level ||
                    sandboxAnalysis?.results_json?.verdict ||
                    'unknown'
+
+  const severity = analysis?.severity || submission?.severity
+  const tlpMarking = analysis?.tlp_marking || submission?.tlp_marking || 'TLP:AMBER'
+  const confidenceScore = analysis?.confidence_score || submission?.confidence_score
+
+  // MITRE validation data
+  const mitreData = mitreValidation?.mitre_validation || mitreValidation
+  const validatedTechniques = mitreData?.validated || []
+  const suppositionTechniques = mitreData?.supposition || []
+  const mitreStats = mitreData?.stats || {}
+
+  // Threat hunt data
+  const huntFindings = threatHunt?.threat_hunt?.findings || threatHunt?.findings || []
+  const huntSummary = threatHunt?.threat_hunt?.hunt_summary || threatHunt?.hunt_summary
+
+  // Investigation plan data
+  const planData = investigationPlan?.investigation_plan || investigationPlan?.plan_json || {}
+  const investigationSteps = planData?.investigation_steps || []
+  const containmentActions = planData?.containment_actions || []
+  const eradicationProcedures = planData?.eradication_procedures || []
+  const recoverySteps = planData?.recovery_steps || []
+
+  // CVE data
+  const cveData = nvdEnrichment?.results_json?.cve_data || []
+
+  // Group investigation steps by priority
+  const stepsByPriority = investigationSteps.reduce((acc, step) => {
+    const p = step.priority || 'P3'
+    if (!acc[p]) acc[p] = []
+    acc[p].push(step)
+    return acc
+  }, {})
 
   return (
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
-          <Link to="/reports" className="mr-4 text-gray-400 hover:text-gray-600">
+          <Link to="/reports" className="mr-4 text-gray-400 hover:text-gray-600" aria-label="Back to reports">
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
@@ -103,6 +195,29 @@ function ReportDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* TLP & Severity Banner */}
+      {(severity || tlpMarking) && (
+        <div className="flex items-center gap-3 mb-6">
+          {severity && (
+            <SeverityBadge severity={severity} />
+          )}
+          {tlpMarking && (
+            <span className={`px-3 py-1 rounded-md text-sm font-semibold border ${tlpColors[tlpMarking] || 'bg-gray-100 text-gray-800 border-gray-300'}`}>
+              {tlpMarking}
+            </span>
+          )}
+          {confidenceScore != null && (
+            <span className={`px-3 py-1 rounded-md text-sm font-medium ${
+              confidenceScore >= 0.7 ? 'bg-green-100 text-green-700' :
+              confidenceScore >= 0.4 ? 'bg-yellow-100 text-yellow-700' :
+              'bg-red-100 text-red-700'
+            }`}>
+              Confidence: {Math.round(confidenceScore * 100)}%
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Summary Card */}
       <div className="card mb-6">
@@ -184,24 +299,148 @@ function ReportDetailPage() {
           </div>
         )}
 
-        {/* MITRE ATT&CK */}
-        {scriptAnalysis?.results_json?.mitre_techniques?.length > 0 && (
+        {/* MITRE ATT&CK - Enhanced with validation badges */}
+        {(validatedTechniques.length > 0 || suppositionTechniques.length > 0 ||
+          scriptAnalysis?.results_json?.mitre_techniques?.length > 0) && (
           <div className="card">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Target className="h-5 w-5 mr-2 text-purple-500" />
               MITRE ATT&CK Techniques
+              {mitreStats.validation_rate != null && (
+                <span className="ml-2 text-xs font-normal text-gray-500">
+                  ({mitreStats.validation_rate}% validated)
+                </span>
+              )}
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {scriptAnalysis.results_json.mitre_techniques.map((technique, idx) => (
-                <a
-                  key={idx}
-                  href={`https://attack.mitre.org/techniques/${technique.id}/`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 hover:bg-purple-200"
-                >
-                  {technique.id}: {technique.name}
-                </a>
-              ))}
+
+            {/* Validated techniques */}
+            {validatedTechniques.length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs text-gray-500 mb-2 font-medium uppercase">Validated</p>
+                <div className="flex flex-wrap gap-2">
+                  {validatedTechniques.map((technique, idx) => (
+                    <a
+                      key={idx}
+                      href={`https://attack.mitre.org/techniques/${technique.id?.replace('.', '/')}/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 border border-green-300"
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      {technique.id}: {technique.official_name || technique.name}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Supposition techniques */}
+            {suppositionTechniques.length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs text-gray-500 mb-2 font-medium uppercase">Unverified (LLM Supposition)</p>
+                <div className="flex flex-wrap gap-2">
+                  {suppositionTechniques.map((technique, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-300"
+                    >
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      {technique.id}: {technique.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Fallback: original MITRE techniques (when validation data not available) */}
+            {validatedTechniques.length === 0 && suppositionTechniques.length === 0 &&
+             scriptAnalysis?.results_json?.mitre_techniques?.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {scriptAnalysis.results_json.mitre_techniques.map((technique, idx) => (
+                  <a
+                    key={idx}
+                    href={`https://attack.mitre.org/techniques/${technique.id}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 hover:bg-purple-200"
+                  >
+                    {technique.id}: {technique.name}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Threat Hunt Findings */}
+        {huntFindings.length > 0 && (
+          <div className="card lg:col-span-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Search className="h-5 w-5 mr-2 text-primary-500" />
+              Threat Hunt Findings ({huntFindings.length})
+            </h3>
+            {huntSummary && (
+              <p className="text-sm text-gray-600 mb-4">{huntSummary}</p>
+            )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">ID</th>
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">Finding</th>
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">Severity</th>
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">Confidence</th>
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">Evidence</th>
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {huntFindings.map((finding, idx) => (
+                    <tr key={idx} className="border-b border-gray-100">
+                      <td className="py-2 px-3 font-mono text-xs">{finding.id}</td>
+                      <td className="py-2 px-3">
+                        <p className="font-medium">{finding.title}</p>
+                        {finding.description && (
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{finding.description}</p>
+                        )}
+                      </td>
+                      <td className="py-2 px-3">
+                        <SeverityBadge severity={finding.severity} size="sm" />
+                      </td>
+                      <td className="py-2 px-3">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          confidenceColors[finding.confidence?.toLowerCase()] || 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {finding.confidence}
+                        </span>
+                        {finding.confidence_reasoning && (
+                          <p className="text-xs text-gray-400 mt-1">{finding.confidence_reasoning}</p>
+                        )}
+                      </td>
+                      <td className="py-2 px-3">
+                        {finding.evidence?.slice(0, 3).map((e, eidx) => (
+                          <p key={eidx} className="text-xs font-mono text-gray-600">
+                            [{e.type}] {e.value?.substring(0, 40)}{e.value?.length > 40 ? '...' : ''}
+                          </p>
+                        ))}
+                        {finding.evidence?.length > 3 && (
+                          <p className="text-xs text-gray-400">+{finding.evidence.length - 3} more</p>
+                        )}
+                      </td>
+                      <td className="py-2 px-3">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                          finding.recommendation === 'contain' ? 'bg-red-100 text-red-700' :
+                          finding.recommendation === 'investigate' ? 'bg-orange-100 text-orange-700' :
+                          finding.recommendation === 'monitor' ? 'bg-blue-100 text-blue-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {finding.recommendation}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -237,6 +476,162 @@ function ReportDetailPage() {
               {analysis.iocs.length > 20 && (
                 <p className="text-sm text-gray-500 mt-2 text-center">
                   Showing 20 of {analysis.iocs.length} IOCs. Download report for full list.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Investigation Plan */}
+        {investigationSteps.length > 0 && (
+          <div className="card lg:col-span-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <FileText className="h-5 w-5 mr-2 text-primary-500" />
+              Investigation & Response Plan
+            </h3>
+
+            {/* Investigation steps grouped by priority */}
+            {['P1', 'P2', 'P3', 'P4'].map(priority => {
+              const steps = stepsByPriority[priority]
+              if (!steps || steps.length === 0) return null
+              const isExpanded = expandedPriorities[priority]
+
+              return (
+                <div key={priority} className="mb-4">
+                  <button
+                    onClick={() => togglePriority(priority)}
+                    className={`flex items-center w-full px-3 py-2 rounded-lg border text-sm font-semibold ${priorityColors[priority]}`}
+                  >
+                    {isExpanded ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronRight className="h-4 w-4 mr-2" />}
+                    {priority} — {priority === 'P1' ? 'Immediate' : priority === 'P2' ? 'Urgent (24h)' : priority === 'P3' ? 'Standard (72h)' : 'Low Priority'}
+                    <span className="ml-2 text-xs font-normal">({steps.length} steps)</span>
+                  </button>
+                  {isExpanded && (
+                    <div className="mt-2 ml-4 space-y-2">
+                      {steps.map((step, idx) => (
+                        <div key={idx} className="border-l-2 border-gray-200 pl-3 py-1">
+                          <p className="text-sm font-medium">{step.action}</p>
+                          {step.rationale && (
+                            <p className="text-xs text-gray-500 mt-0.5">{step.rationale}</p>
+                          )}
+                          {step.tools?.length > 0 && (
+                            <div className="flex gap-1 mt-1">
+                              {step.tools.map((tool, tidx) => (
+                                <span key={tidx} className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{tool}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Containment actions */}
+            {containmentActions.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Containment Actions</h4>
+                <div className="space-y-2">
+                  {containmentActions.map((action, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-sm">
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium shrink-0 ${priorityColors[action.priority] || 'bg-gray-100 text-gray-600'}`}>
+                        {action.priority}
+                      </span>
+                      <span>{action.action}</span>
+                      {action.scope && (
+                        <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded shrink-0">{action.scope}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Eradication & recovery */}
+            {(eradicationProcedures.length > 0 || recoverySteps.length > 0) && (
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Eradication & Recovery</h4>
+                <div className="space-y-1">
+                  {eradicationProcedures.map((step, idx) => (
+                    <p key={`e-${idx}`} className="text-sm text-gray-600">
+                      <span className="font-medium">E{idx + 1}.</span> {step.action}
+                    </p>
+                  ))}
+                  {recoverySteps.map((step, idx) => (
+                    <p key={`r-${idx}`} className="text-sm text-gray-600">
+                      <span className="font-medium">R{idx + 1}.</span> {step.action}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {planData?.analyst_notes && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-xs font-medium text-blue-700 mb-1">Analyst Notes</p>
+                <p className="text-sm text-blue-800">{planData.analyst_notes}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CVE Intelligence */}
+        {cveData.length > 0 && (
+          <div className="card lg:col-span-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-red-500" />
+              CVE Intelligence ({cveData.length})
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">CVE ID</th>
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">CVSS</th>
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">Description</th>
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">Published</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cveData.slice(0, 15).map((cve, idx) => (
+                    <tr key={idx} className="border-b border-gray-100">
+                      <td className="py-2 px-3">
+                        <a
+                          href={`https://nvd.nist.gov/vuln/detail/${cve.cve_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-xs text-primary-600 hover:underline"
+                        >
+                          {cve.cve_id}
+                        </a>
+                      </td>
+                      <td className="py-2 px-3">
+                        {cve.cvss_v3_score != null && (
+                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                            cve.cvss_v3_score >= 9.0 ? 'bg-red-600 text-white' :
+                            cve.cvss_v3_score >= 7.0 ? 'bg-orange-500 text-white' :
+                            cve.cvss_v3_score >= 4.0 ? 'bg-yellow-500 text-white' :
+                            'bg-green-500 text-white'
+                          }`}>
+                            {cve.cvss_v3_score}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-gray-600 text-xs max-w-md">
+                        <p className="line-clamp-2">{cve.description}</p>
+                      </td>
+                      <td className="py-2 px-3 text-gray-500 text-xs whitespace-nowrap">
+                        {cve.published ? format(new Date(cve.published), 'MMM d, yyyy') : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {cveData.length > 15 && (
+                <p className="text-sm text-gray-500 mt-2 text-center">
+                  Showing 15 of {cveData.length} CVEs. Download report for full list.
                 </p>
               )}
             </div>

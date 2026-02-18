@@ -1,182 +1,34 @@
 """Report generation utilities for multiple output formats."""
 
 import json
+import os
 from typing import Dict, List, Any, Optional
 from datetime import datetime
-from jinja2 import Environment, BaseLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
 class ReportGenerator:
     """Generate analysis reports in multiple formats."""
 
-    HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Malware Analysis Report - {{ submission_id }}</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .report-container {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 40px;
-        }
-        h1 { color: #1a1a2e; border-bottom: 3px solid #e94560; padding-bottom: 10px; margin-bottom: 20px; }
-        h2 { color: #16213e; margin-top: 30px; margin-bottom: 15px; }
-        h3 { color: #0f3460; margin-top: 20px; margin-bottom: 10px; }
-        .metadata { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-        .metadata p { margin: 5px 0; }
-        .metadata strong { color: #16213e; }
-        .severity-critical { color: #dc3545; font-weight: bold; }
-        .severity-high { color: #fd7e14; font-weight: bold; }
-        .severity-medium { color: #ffc107; font-weight: bold; }
-        .severity-low { color: #28a745; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #16213e; color: white; }
-        tr:hover { background: #f5f5f5; }
-        .ioc-value { font-family: monospace; font-size: 0.9em; word-break: break-all; }
-        .section { margin-bottom: 30px; }
-        pre {
-            background: #1a1a2e;
-            color: #e94560;
-            padding: 15px;
-            border-radius: 5px;
-            overflow-x: auto;
-            font-size: 0.9em;
-        }
-        code { font-family: 'Fira Code', monospace; }
-        .tag {
-            display: inline-block;
-            background: #e94560;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 3px;
-            font-size: 0.8em;
-            margin: 2px;
-        }
-        .mitre-technique {
-            background: #0f3460;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 3px;
-            margin: 3px;
-            display: inline-block;
-        }
-        .narrative { white-space: pre-wrap; }
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-            color: #666;
-            font-size: 0.9em;
-        }
-    </style>
-</head>
-<body>
-    <div class="report-container">
-        <h1>🔬 Malware Analysis Report</h1>
-
-        <div class="metadata">
-            <p><strong>Report ID:</strong> {{ submission_id }}</p>
-            <p><strong>Generated:</strong> {{ generated_at }}</p>
-            <p><strong>Type:</strong> {{ submission_type }}</p>
-            {% if filename %}<p><strong>Filename:</strong> {{ filename }}</p>{% endif %}
-            {% if url %}<p><strong>URL:</strong> {{ url }}</p>{% endif %}
-            {% if file_hash %}<p><strong>SHA256:</strong> <span class="ioc-value">{{ file_hash }}</span></p>{% endif %}
-            <p><strong>Risk Level:</strong> <span class="severity-{{ risk_level|lower }}">{{ risk_level|upper }}</span></p>
-        </div>
-
-        <div class="section">
-            <h2>📋 Executive Summary</h2>
-            <div class="narrative">{{ executive_summary }}</div>
-        </div>
-
-        {% if narrative %}
-        <div class="section">
-            <h2>📊 Technical Analysis</h2>
-            <div class="narrative">{{ narrative }}</div>
-        </div>
-        {% endif %}
-
-        {% if mitre_techniques %}
-        <div class="section">
-            <h2>🎯 MITRE ATT&CK Techniques</h2>
-            {% for technique in mitre_techniques %}
-            <span class="mitre-technique">{{ technique.id }}: {{ technique.name }}</span>
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        {% if iocs %}
-        <div class="section">
-            <h2>🔍 Indicators of Compromise</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Value</th>
-                        <th>Context</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ioc in iocs[:50] %}
-                    <tr>
-                        <td>{{ ioc.type }}</td>
-                        <td class="ioc-value">{{ ioc.value }}</td>
-                        <td>{{ ioc.context or '-' }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% if iocs|length > 50 %}
-            <p><em>Showing 50 of {{ iocs|length }} IOCs. See JSON report for complete list.</em></p>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        {% if recommendations %}
-        <div class="section">
-            <h2>💡 Recommendations</h2>
-            <ul>
-                {% for rec in recommendations %}
-                <li>{{ rec }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-
-        <div class="footer">
-            <p>Generated by Malware Analysis Platform</p>
-            <p>Report Time: {{ generated_at }}</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
+    TLP_COLORS = {
+        "TLP:WHITE": "#ffffff",
+        "TLP:GREEN": "#33a02c",
+        "TLP:AMBER": "#ff8c00",
+        "TLP:RED": "#dc3545",
+    }
 
     def __init__(self):
         """Initialize the report generator."""
         # Enable autoescape to prevent XSS from malicious IOC values
+        template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
         self.jinja_env = Environment(
-            loader=BaseLoader(),
+            loader=FileSystemLoader(template_dir),
             autoescape=select_autoescape(default=True, default_for_string=True)
         )
 
     def generate(self, format: str, submission: Any, analysis_results: List[Any],
-                 iocs: List[Any], enrichment_data: Dict, narrative: str = "") -> str:
+                 iocs: List[Any], enrichment_data: Dict, narrative: str = "",
+                 extra_data: Optional[Dict] = None) -> str:
         """
         Generate a report in the specified format.
 
@@ -187,27 +39,47 @@ class ReportGenerator:
             iocs: IOC objects
             enrichment_data: Enrichment data dictionary
             narrative: Claude-generated narrative
+            extra_data: Optional dict with enriched data (mitre_validation,
+                        investigation_plan, threat_hunt_findings, cve_data, etc.)
 
         Returns:
             Report content as string (or bytes for PDF)
         """
+        extra = extra_data or {}
         if format == "json":
-            return self._generate_json(submission, analysis_results, iocs, enrichment_data, narrative)
+            return self._generate_json(submission, analysis_results, iocs, enrichment_data, narrative, extra)
         elif format == "html":
-            return self._generate_html(submission, analysis_results, iocs, enrichment_data, narrative)
+            return self._generate_html(submission, analysis_results, iocs, enrichment_data, narrative, extra)
         elif format == "pdf":
-            return self._generate_pdf(submission, analysis_results, iocs, enrichment_data, narrative)
+            return self._generate_pdf(submission, analysis_results, iocs, enrichment_data, narrative, extra)
         else:
             raise ValueError(f"Unsupported format: {format}")
 
-    def _generate_json(self, submission, analysis_results, iocs, enrichment_data, narrative) -> str:
+    def _generate_json(self, submission, analysis_results, iocs, enrichment_data, narrative,
+                        extra: Dict = None) -> str:
         """Generate JSON report."""
+        extra = extra or {}
+
+        # Get severity/tlp from submission if available
+        severity = None
+        tlp = None
+        confidence = None
+        if hasattr(submission, 'severity') and submission.severity:
+            severity = submission.severity.value if hasattr(submission.severity, 'value') else str(submission.severity)
+        if hasattr(submission, 'tlp_marking') and submission.tlp_marking:
+            tlp = submission.tlp_marking.value if hasattr(submission.tlp_marking, 'value') else str(submission.tlp_marking)
+        if hasattr(submission, 'confidence_score'):
+            confidence = submission.confidence_score
+
         report_data = {
             "report_metadata": {
                 "submission_id": submission.id,
                 "generated_at": datetime.utcnow().isoformat(),
                 "format": "json",
-                "version": "1.0"
+                "version": "2.0",
+                "severity": severity,
+                "tlp_marking": tlp,
+                "confidence_score": confidence,
             },
             "submission": {
                 "id": submission.id,
@@ -236,13 +108,26 @@ class ReportGenerator:
                 for i in iocs
             ],
             "enrichment": enrichment_data,
-            "narrative": narrative
+            "narrative": narrative,
         }
+
+        # Add enriched sections from extra_data
+        if extra.get("mitre_validation"):
+            report_data["mitre_validation"] = extra["mitre_validation"]
+        if extra.get("investigation_plan"):
+            report_data["investigation_plan"] = extra["investigation_plan"]
+        if extra.get("threat_hunt_findings"):
+            report_data["threat_hunt_findings"] = extra["threat_hunt_findings"]
+        if extra.get("cve_data"):
+            report_data["cve_data"] = extra["cve_data"]
 
         return json.dumps(report_data, indent=2, default=str)
 
-    def _generate_html(self, submission, analysis_results, iocs, enrichment_data, narrative) -> str:
+    def _generate_html(self, submission, analysis_results, iocs, enrichment_data, narrative,
+                        extra: Dict = None) -> str:
         """Generate HTML report."""
+        extra = extra or {}
+
         # Extract data for template
         risk_level = "medium"  # Default
         mitre_techniques = []
@@ -280,8 +165,32 @@ class ReportGenerator:
             for i in iocs
         ]
 
+        # Extract enriched data for template
+        severity = None
+        if hasattr(submission, 'severity') and submission.severity:
+            severity = submission.severity.value if hasattr(submission.severity, 'value') else str(submission.severity)
+
+        tlp_marking = None
+        if hasattr(submission, 'tlp_marking') and submission.tlp_marking:
+            tlp_marking = submission.tlp_marking.value if hasattr(submission.tlp_marking, 'value') else str(submission.tlp_marking)
+
+        confidence_score = getattr(submission, 'confidence_score', None)
+
+        mitre_validation = extra.get("mitre_validation", {})
+        mitre_validated = mitre_validation.get("validated", [])
+        mitre_supposition = mitre_validation.get("supposition", [])
+        mitre_validation_stats = mitre_validation.get("stats")
+
+        threat_hunt = extra.get("threat_hunt_findings", {})
+        threat_hunt_findings = threat_hunt.get("findings", []) if isinstance(threat_hunt, dict) else []
+
+        investigation = extra.get("investigation_plan", {})
+        investigation_plan = investigation.get("investigation_plan") if isinstance(investigation, dict) else None
+
+        cve_data = extra.get("cve_data", [])
+
         # Render template
-        template = self.jinja_env.from_string(self.HTML_TEMPLATE)
+        template = self.jinja_env.get_template("report.html")
         html = template.render(
             submission_id=submission.id,
             generated_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
@@ -290,19 +199,29 @@ class ReportGenerator:
             url=submission.original_url,
             file_hash=submission.file_hash_sha256,
             risk_level=risk_level,
+            severity=severity,
+            tlp_marking=tlp_marking,
+            confidence_score=confidence_score,
             executive_summary=executive_summary,
             narrative=narrative,
             mitre_techniques=mitre_techniques[:20],
+            mitre_validated=mitre_validated,
+            mitre_supposition=mitre_supposition,
+            mitre_validation_stats=mitre_validation_stats,
+            threat_hunt_findings=threat_hunt_findings,
+            investigation_plan=investigation_plan,
+            cve_data=cve_data,
             iocs=ioc_data,
             recommendations=recommendations[:10]
         )
 
         return html
 
-    def _generate_pdf(self, submission, analysis_results, iocs, enrichment_data, narrative) -> str:
+    def _generate_pdf(self, submission, analysis_results, iocs, enrichment_data, narrative,
+                      extra: Dict = None) -> str:
         """Generate PDF report using WeasyPrint."""
         # First generate HTML
-        html_content = self._generate_html(submission, analysis_results, iocs, enrichment_data, narrative)
+        html_content = self._generate_html(submission, analysis_results, iocs, enrichment_data, narrative, extra)
 
         try:
             from weasyprint import HTML

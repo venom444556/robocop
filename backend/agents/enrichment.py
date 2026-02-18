@@ -1,11 +1,16 @@
 """Claude Enrichment Agent for orchestrating intelligence lookups and correlation."""
 
+import logging
 from typing import Dict, List, Optional, Any
 import json
 import asyncio
 
+from .base import BaseAgent
 
-class EnrichmentAgent:
+logger = logging.getLogger(__name__)
+
+
+class EnrichmentAgent(BaseAgent):
     """
     Claude-powered agent for orchestrating enrichment and correlating intelligence.
     """
@@ -30,29 +35,7 @@ that helps defenders understand and respond to the threat."""
             api_key: Anthropic API key
             model: Claude model to use
         """
-        from config import get_settings
-        settings = get_settings()
-        self.api_key = api_key or settings.anthropic_api_key
-        self.model = model or settings.claude_model
-
-    async def _call_claude(self, prompt: str, max_tokens: int = 4096) -> str:
-        """Make a call to Claude API."""
-        import anthropic
-
-        if not self.api_key:
-            return "Error: Anthropic API key not configured"
-
-        try:
-            client = anthropic.AsyncAnthropic(api_key=self.api_key)
-            message = await client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                system=self.SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return message.content[0].text
-        except Exception as e:
-            return f"Error calling Claude API: {str(e)}"
+        super().__init__(api_key=api_key, model=model, system_prompt=self.SYSTEM_PROMPT)
 
     async def prioritize_iocs(self, iocs: List[Dict]) -> Dict:
         """
@@ -95,7 +78,7 @@ Return a prioritized list in JSON format:
             if json_match:
                 return json.loads(json_match.group())
         except json.JSONDecodeError:
-            pass
+            logger.warning("Failed to parse JSON from IOC prioritization response", exc_info=True)
 
         return {"prioritization": result}
 
@@ -154,7 +137,7 @@ Provide:
             if json_match:
                 return json.loads(json_match.group())
         except json.JSONDecodeError:
-            pass
+            logger.warning("Failed to parse JSON from enrichment correlation response", exc_info=True)
 
         return {"correlation": result}
 
@@ -321,4 +304,76 @@ Format as professional intelligence brief suitable for SOC leadership."""
         return {
             "intelligence_summary": summary,
             "model_used": self.model
+        }
+
+    async def enrich_with_nvd(self, analysis_context: Dict) -> Dict:
+        """
+        Query NVD for relevant CVEs based on analysis context.
+        Uses Claude to extract software/vulnerability keywords, then queries NVD API.
+
+        Args:
+            analysis_context: Analysis data to extract keywords from
+
+        Returns:
+            Dictionary with NVD CVE results
+        """
+        from enrichment import NVDClient
+
+        # Step 1: Use Claude to extract relevant keywords for CVE search
+        keyword_prompt = f"""From this malware analysis data, extract specific software names,
+versions, vulnerability types, and exploit-related keywords that could be used to search
+the National Vulnerability Database (NVD) for relevant CVEs.
+
+Analysis data:
+```json
+{json.dumps(analysis_context, indent=2, default=str)[:6000]}
+```
+
+Return ONLY a JSON object:
+{{"keywords": ["keyword1", "keyword2", "keyword3"]}}
+
+Focus on: software names (e.g., "Apache Log4j"), protocol names exploited,
+and specific vulnerability classes (e.g., "remote code execution").
+Return at most 5 keywords. Only include keywords likely to find relevant CVEs."""
+
+        keywords_result = await self._call_claude(keyword_prompt, max_tokens=512)
+
+        # Parse keywords
+        import re
+        keywords = []
+        try:
+            json_match = re.search(r'\{[\s\S]*\}', keywords_result)
+            if json_match:
+                parsed = json.loads(json_match.group())
+                keywords = parsed.get("keywords", [])[:5]
+        except (json.JSONDecodeError, AttributeError):
+            logger.warning("Failed to parse NVD keyword extraction response", exc_info=True)
+
+        if not keywords:
+            return {"nvd_cves": [], "keywords_searched": [], "note": "No relevant keywords extracted"}
+
+        # Step 2: Query NVD for each keyword
+        nvd = NVDClient()
+        all_cves = []
+        seen_ids = set()
+
+        for keyword in keywords:
+            try:
+                result = await nvd.search_by_keyword(keyword, results_per_page=5)
+                if not result.get("error"):
+                    for cve in result.get("cves", []):
+                        cve_id = cve.get("cve_id")
+                        if cve_id and cve_id not in seen_ids:
+                            seen_ids.add(cve_id)
+                            cve["search_keyword"] = keyword
+                            all_cves.append(cve)
+            except Exception:
+                logger.warning("NVD query failed for keyword '%s'", keyword, exc_info=True)
+                continue
+
+        return {
+            "nvd_cves": all_cves,
+            "keywords_searched": keywords,
+            "total_cves_found": len(all_cves),
+            "source": "nvd"
         }

@@ -166,6 +166,44 @@ async def status_update(
     return {"status": "success", "message": "Status updated"}
 
 
+class NVDEnrichmentWebhook(BaseModel):
+    """Webhook payload for NVD/CVE enrichment results."""
+    submission_id: int
+    cve_data: list[dict]
+    keywords_searched: list[str] = []
+
+
+@router.post("/nvd-enrichment-complete")
+async def nvd_enrichment_complete(
+    payload: NVDEnrichmentWebhook,
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(verify_api_key)
+):
+    """Store NVD/CVE enrichment results."""
+    result = await db.execute(
+        select(Submission).filter(Submission.id == payload.submission_id)
+    )
+    submission = result.scalar_one_or_none()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    # Store as AnalysisResult
+    analysis_result = AnalysisResult(
+        submission_id=payload.submission_id,
+        analyzer="nvd_enrichment",
+        results_json={
+            "cve_data": payload.cve_data,
+            "keywords_searched": payload.keywords_searched,
+            "total_cves": len(payload.cve_data),
+            "source": "nvd"
+        }
+    )
+    db.add(analysis_result)
+    await db.commit()
+
+    return {"status": "success", "message": f"NVD enrichment stored: {len(payload.cve_data)} CVEs"}
+
+
 @router.get("/submission/{submission_id}/data")
 async def get_submission_data(
     submission_id: int,
