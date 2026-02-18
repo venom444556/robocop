@@ -1,6 +1,7 @@
 """Dashboard statistics endpoints for the malware analysis platform."""
 
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -16,10 +17,21 @@ from database import (
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# In-memory TTL cache for dashboard stats.
+# Migrate to Redis when: multi-instance backend, cache >500MB, or persistence needed.
+_stats_cache: dict = {"data": None, "expires_at": 0.0}
+_CACHE_TTL_SECONDS = 60
+
 
 @router.get("/stats")
 async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
     """Get comprehensive dashboard statistics for the platform overview."""
+
+    # Return cached data if still valid
+    now = time.monotonic()
+    if _stats_cache["data"] is not None and now < _stats_cache["expires_at"]:
+        logger.debug("Returning cached dashboard stats (%.1fs remaining)", _stats_cache["expires_at"] - now)
+        return _stats_cache["data"]
 
     # ── Submission status counts ──────────────────────────────────────
     status_query = select(
@@ -190,7 +202,7 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
             break
 
     # ── Assemble response ─────────────────────────────────────────────
-    return {
+    stats = {
         "total_submissions": total_submissions,
         "total_complete": total_complete,
         "total_failed": total_failed,
@@ -205,3 +217,9 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
         "mitre_heatmap": mitre_heatmap,
         "recent_findings": recent_findings,
     }
+
+    # Cache the result
+    _stats_cache["data"] = stats
+    _stats_cache["expires_at"] = time.monotonic() + _CACHE_TTL_SECONDS
+
+    return stats

@@ -107,7 +107,7 @@ class UnshortenClient:
         current_url = url
         redirect_count = 0
 
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=False, verify=False) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
             while redirect_count < max_redirects:
                 try:
                     response = await client.head(current_url, follow_redirects=False)
@@ -134,8 +134,10 @@ class UnshortenClient:
                         # No more redirects
                         break
 
-                except httpx.RequestError:
-                    # Try GET if HEAD fails
+                except (httpx.RequestError, httpx.ConnectError) as e:
+                    # Log SSL/connection failures, then try GET as fallback
+                    import logging
+                    logging.getLogger(__name__).warning("HEAD request failed for %s: %s", current_url, e)
                     try:
                         response = await client.get(current_url, follow_redirects=False)
                         result["redirect_chain"].append({
@@ -155,7 +157,10 @@ class UnshortenClient:
                                 break
                         else:
                             break
-                    except Exception:
+                    except Exception as inner_e:
+                        logging.getLogger(__name__).warning(
+                            "GET fallback also failed for %s: %s", current_url, inner_e
+                        )
                         break
 
         result["expanded_url"] = current_url

@@ -271,12 +271,14 @@ function YaraRulesPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search rules by name, description, or content..."
               className="input pl-10"
+              aria-label="Search YARA rules"
             />
           </div>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="input w-44"
+            aria-label="Filter by category"
           >
             <option value="">All Categories</option>
             {CATEGORIES.map((cat) => (
@@ -352,6 +354,7 @@ function YaraRulesPage() {
                 <button
                   onClick={closeRuleModal}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  aria-label="Close dialog"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -568,6 +571,7 @@ function YaraRulesPage() {
                 <button
                   onClick={() => setShowImportModal(false)}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  aria-label="Close import dialog"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -713,6 +717,7 @@ function RuleCard({ rule, onEdit, onDelete, onToggle }) {
           onClick={() => onToggle(!rule.enabled)}
           className="flex-shrink-0"
           title={rule.enabled ? 'Disable rule' : 'Enable rule'}
+          aria-label={rule.enabled ? 'Disable rule' : 'Enable rule'}
         >
           {rule.enabled ? (
             <ToggleRight className="h-6 w-6 text-primary-500" />
@@ -772,6 +777,8 @@ function RuleCard({ rule, onEdit, onDelete, onToggle }) {
         <button
           onClick={onDelete}
           className="btn btn-danger flex items-center justify-center text-sm py-1.5 px-3"
+          aria-label="Delete rule"
+          title="Delete rule"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>

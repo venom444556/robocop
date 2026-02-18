@@ -1,5 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from datetime import datetime
+import asyncio
 import json
 import logging
 
@@ -57,6 +58,16 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+async def _heartbeat(websocket: WebSocket):
+    """Send periodic ping frames to detect dead connections."""
+    try:
+        while True:
+            await asyncio.sleep(30)
+            await websocket.send_json({"type": "ping"})
+    except Exception:
+        pass  # Connection closed — handled by caller
+
+
 @router.websocket("/ws/analysis-feed")
 async def analysis_feed(websocket: WebSocket):
     """WebSocket endpoint that provides real-time analysis status updates.
@@ -65,6 +76,7 @@ async def analysis_feed(websocket: WebSocket):
     analysis progress, new submissions, and report availability.
     """
     await manager.connect(websocket)
+    heartbeat_task = asyncio.create_task(_heartbeat(websocket))
     try:
         await websocket.send_json({
             "type": "connected",
@@ -77,6 +89,8 @@ async def analysis_feed(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         logger.info("Client disconnected from analysis feed.")
+    finally:
+        heartbeat_task.cancel()
 
 
 async def notify_analysis_update(

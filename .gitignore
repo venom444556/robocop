@@ -76,3 +76,6 @@ docker-compose.override.yml
 
 # n8n data
 n8n_data/
+
+# Windows artifacts
+nul

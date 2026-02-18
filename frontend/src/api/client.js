@@ -1,4 +1,5 @@
 import axios from 'axios'
+import axiosRetry from 'axios-retry'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
@@ -8,6 +9,21 @@ const client = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+// Retry: 2 retries with exponential backoff for network errors and 5xx
+axiosRetry(client, {
+  retries: 2,
+  retryDelay: axiosRetry.exponentialDelay,
+  retryCondition: (error) =>
+    axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+    error.response?.status >= 500,
+})
+
+// Module-level toast function — set from React via setToastFn()
+let toastFn = null
+export function setToastFn(fn) {
+  toastFn = fn
+}
 
 // Request interceptor for API key
 client.interceptors.request.use((config) => {
@@ -23,8 +39,12 @@ client.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized
-      console.error('Unauthorized request')
+      toastFn?.('API key is invalid or missing. Please check Settings.', 'error', 0)
+      window.location.pathname = '/settings'
+    } else if (!error.response && error.code === 'ERR_NETWORK') {
+      toastFn?.('Network error — server may be unreachable. Retries exhausted.', 'error')
+    } else if (error.response?.status >= 500) {
+      toastFn?.('Server error — please try again later.', 'error')
     }
     return Promise.reject(error)
   }

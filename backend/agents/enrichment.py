@@ -1,11 +1,16 @@
 """Claude Enrichment Agent for orchestrating intelligence lookups and correlation."""
 
+import logging
 from typing import Dict, List, Optional, Any
 import json
 import asyncio
 
+from .base import BaseAgent
 
-class EnrichmentAgent:
+logger = logging.getLogger(__name__)
+
+
+class EnrichmentAgent(BaseAgent):
     """
     Claude-powered agent for orchestrating enrichment and correlating intelligence.
     """
@@ -30,29 +35,7 @@ that helps defenders understand and respond to the threat."""
             api_key: Anthropic API key
             model: Claude model to use
         """
-        from config import get_settings
-        settings = get_settings()
-        self.api_key = api_key or settings.anthropic_api_key
-        self.model = model or settings.claude_model
-
-    async def _call_claude(self, prompt: str, max_tokens: int = 4096) -> str:
-        """Make a call to Claude API."""
-        import anthropic
-
-        if not self.api_key:
-            return "Error: Anthropic API key not configured"
-
-        try:
-            client = anthropic.AsyncAnthropic(api_key=self.api_key)
-            message = await client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                system=self.SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return message.content[0].text
-        except Exception as e:
-            return f"Error calling Claude API: {str(e)}"
+        super().__init__(api_key=api_key, model=model, system_prompt=self.SYSTEM_PROMPT)
 
     async def prioritize_iocs(self, iocs: List[Dict]) -> Dict:
         """
@@ -95,7 +78,7 @@ Return a prioritized list in JSON format:
             if json_match:
                 return json.loads(json_match.group())
         except json.JSONDecodeError:
-            pass
+            logger.warning("Failed to parse JSON from IOC prioritization response", exc_info=True)
 
         return {"prioritization": result}
 
@@ -154,7 +137,7 @@ Provide:
             if json_match:
                 return json.loads(json_match.group())
         except json.JSONDecodeError:
-            pass
+            logger.warning("Failed to parse JSON from enrichment correlation response", exc_info=True)
 
         return {"correlation": result}
 
@@ -364,7 +347,7 @@ Return at most 5 keywords. Only include keywords likely to find relevant CVEs.""
                 parsed = json.loads(json_match.group())
                 keywords = parsed.get("keywords", [])[:5]
         except (json.JSONDecodeError, AttributeError):
-            pass
+            logger.warning("Failed to parse NVD keyword extraction response", exc_info=True)
 
         if not keywords:
             return {"nvd_cves": [], "keywords_searched": [], "note": "No relevant keywords extracted"}
@@ -385,6 +368,7 @@ Return at most 5 keywords. Only include keywords likely to find relevant CVEs.""
                             cve["search_keyword"] = keyword
                             all_cves.append(cve)
             except Exception:
+                logger.warning("NVD query failed for keyword '%s'", keyword, exc_info=True)
                 continue
 
         return {

@@ -174,13 +174,13 @@ async def generate_report_task(submission_id: int, format: str, db: AsyncSession
             try:
                 submission.severity = SeverityLevel(highest_severity)
             except ValueError:
-                pass
+                logger.warning("Invalid severity level '%s', skipping assignment", highest_severity)
             submission.confidence_score = confidence
             if not submission.tlp_marking:
                 try:
                     submission.tlp_marking = TLPMarking(settings.default_tlp_marking)
                 except ValueError:
-                    pass
+                    logger.warning("Invalid TLP marking '%s', skipping assignment", settings.default_tlp_marking)
 
         # --- Generate Narrative with Enhanced Data ---
         report_writer = ReportWriterAgent()

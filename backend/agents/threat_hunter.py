@@ -1,11 +1,16 @@
 """Claude Threat Hunt Agent for evidence-grounded threat analysis."""
 
+import logging
 from typing import Dict, List, Optional, Any
 import json
 import re
 
+from .base import BaseAgent
 
-class ThreatHuntAgent:
+logger = logging.getLogger(__name__)
+
+
+class ThreatHuntAgent(BaseAgent):
     """
     Claude-powered agent for specialized threat hunting with evidence-grounded findings.
     Inspired by Autonomous SOC Analyst's context-specific analysis prompts.
@@ -68,34 +73,15 @@ When analyzing, you MUST:
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         """Initialize the Threat Hunt Agent."""
-        from config import get_settings
-        settings = get_settings()
-        self.api_key = api_key or settings.anthropic_api_key
-        self.model = model or settings.claude_model
+        super().__init__(
+            api_key=api_key,
+            model=model,
+            system_prompt=self.SYSTEM_PROMPTS["default"],
+        )
 
     def _get_system_prompt(self, submission_type: str) -> str:
         """Select the appropriate system prompt for the submission type."""
         return self.SYSTEM_PROMPTS.get(submission_type, self.SYSTEM_PROMPTS["default"])
-
-    async def _call_claude(self, prompt: str, system_prompt: str,
-                            max_tokens: int = 4096) -> str:
-        """Make a call to Claude API with a context-specific system prompt."""
-        import anthropic
-
-        if not self.api_key:
-            return "Error: Anthropic API key not configured"
-
-        try:
-            client = anthropic.AsyncAnthropic(api_key=self.api_key)
-            message = await client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                system=system_prompt,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return message.content[0].text
-        except Exception as e:
-            return f"Error calling Claude API: {str(e)}"
 
     async def hunt(self, submission_type: str, analysis_data: Dict,
                    iocs: List[Dict], enrichment_data: Dict) -> Dict:
@@ -164,7 +150,7 @@ Return a JSON response with this exact structure:
   "hunt_summary": "Overall threat assessment summary"
 }}"""
 
-        result = await self._call_claude(prompt, system_prompt)
+        result = await self._call_claude(prompt, system_prompt=system_prompt)
 
         # Parse JSON from response
         try:
@@ -177,7 +163,7 @@ Return a JSON response with this exact structure:
                     "model_used": self.model
                 }
         except json.JSONDecodeError:
-            pass
+            logger.warning("Failed to parse JSON from threat hunt response", exc_info=True)
 
         return {
             "threat_hunt": {"raw_response": result},

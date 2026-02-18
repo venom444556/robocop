@@ -20,6 +20,7 @@ import {
 import { format } from 'date-fns'
 import { useState } from 'react'
 import { analysisApi, reportsApi, submissionsApi } from '../api/client'
+import SeverityBadge from '../components/SeverityBadge'
 
 const riskColors = {
   critical: 'text-red-600 bg-red-100',
@@ -165,7 +166,7 @@ function ReportDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
-          <Link to="/reports" className="mr-4 text-gray-400 hover:text-gray-600">
+          <Link to="/reports" className="mr-4 text-gray-400 hover:text-gray-600" aria-label="Back to reports">
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
@@ -199,9 +200,7 @@ function ReportDetailPage() {
       {(severity || tlpMarking) && (
         <div className="flex items-center gap-3 mb-6">
           {severity && (
-            <span className={`px-3 py-1 rounded-md text-sm font-semibold ${severityColors[severity] || 'bg-gray-500 text-white'}`}>
-              {severity.toUpperCase()} SEVERITY
-            </span>
+            <SeverityBadge severity={severity} />
           )}
           {tlpMarking && (
             <span className={`px-3 py-1 rounded-md text-sm font-semibold border ${tlpColors[tlpMarking] || 'bg-gray-100 text-gray-800 border-gray-300'}`}>
@@ -406,11 +405,7 @@ function ReportDetailPage() {
                         )}
                       </td>
                       <td className="py-2 px-3">
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                          severityColors[finding.severity?.toLowerCase()] || 'bg-gray-200 text-gray-700'
-                        }`}>
-                          {finding.severity}
-                        </span>
+                        <SeverityBadge severity={finding.severity} size="sm" />
                       </td>
                       <td className="py-2 px-3">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${

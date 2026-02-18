@@ -14,9 +14,14 @@ import {
   ExternalLink,
   GitCompare,
   Filter,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import client from '../api/client'
+import SeverityBadge from '../components/SeverityBadge'
+import { TableSkeleton } from '../components/Skeleton'
+import useDebouncedValue from '../hooks/useDebouncedValue'
 
 const typeIcons = {
   ip: Server,
@@ -36,17 +41,24 @@ function SearchPage() {
   const [selectedIOC, setSelectedIOC] = useState(null)
   const [compareMode, setCompareMode] = useState(false)
   const [compareIds, setCompareIds] = useState([null, null])
+  const [page, setPage] = useState(1)
+  const pageSize = 25
+
+  const debouncedQuery = useDebouncedValue(query, 300)
+
+  // Auto-search on debounced input change
+  const activeQuery = searchQuery || (debouncedQuery.length >= 2 ? debouncedQuery : '')
 
   // IOC search
   const { data: searchResults, isLoading: searching } = useQuery({
-    queryKey: ['ioc-search', searchQuery, typeFilter],
+    queryKey: ['ioc-search', activeQuery, typeFilter, page],
     queryFn: async () => {
-      const params = new URLSearchParams({ q: searchQuery, limit: '50' })
+      const params = new URLSearchParams({ q: activeQuery, limit: String(pageSize), offset: String((page - 1) * pageSize) })
       if (typeFilter) params.append('type', typeFilter)
       const response = await client.get(`/search/iocs?${params}`)
       return response.data
     },
-    enabled: searchQuery.length >= 2,
+    enabled: activeQuery.length >= 2,
   })
 
   // IOC correlation
@@ -73,6 +85,7 @@ function SearchPage() {
     e.preventDefault()
     setSearchQuery(query)
     setSelectedIOC(null)
+    setPage(1)
   }
 
   return (
@@ -218,13 +231,9 @@ function SearchPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Search Results */}
         <div className={selectedIOC ? 'lg:col-span-1' : 'lg:col-span-3'}>
-          {searching && (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
-            </div>
-          )}
+          {searching && <TableSkeleton rows={6} columns={3} />}
 
-          {searchResults && (
+          {searchResults && !searching && (
             <div className="card">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -257,10 +266,37 @@ function SearchPage() {
                   )
                 })}
               </div>
+
+              {/* Pagination */}
+              {(searchResults.total_count || 0) > pageSize && (
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-xs text-gray-500">
+                    Page {page} of {Math.ceil((searchResults.total_count || 0) / pageSize)}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page <= 1}
+                      className="btn btn-secondary text-xs px-2 py-1 disabled:opacity-50"
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={page >= Math.ceil((searchResults.total_count || 0) / pageSize)}
+                      className="btn btn-secondary text-xs px-2 py-1 disabled:opacity-50"
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {!searchResults && !searching && searchQuery.length === 0 && (
+          {!searchResults && !searching && activeQuery.length === 0 && (
             <div className="card text-center py-12">
               <Search className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">Search for IOCs</h3>
@@ -317,13 +353,7 @@ function SearchPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           {sub.severity && (
-                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                              sub.severity === 'critical' ? 'bg-red-100 text-red-700' :
-                              sub.severity === 'high' ? 'bg-orange-100 text-orange-700' :
-                              'bg-gray-100 text-gray-600'
-                            }`}>
-                              {sub.severity}
-                            </span>
+                            <SeverityBadge severity={sub.severity} size="sm" />
                           )}
                           <ExternalLink className="h-3 w-3 text-gray-400" />
                         </div>

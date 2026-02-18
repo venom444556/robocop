@@ -20,15 +20,32 @@ class Settings(BaseSettings):
     debug: bool = False
     api_key: str = "change-this-in-production"
 
+    # CORS configuration
+    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+
     @field_validator("api_key")
     @classmethod
-    def validate_api_key(cls, v):
-        """Warn if using insecure default API key."""
+    def validate_api_key(cls, v, info):
+        """Validate API key security. Fails startup in production with insecure defaults."""
         if v in INSECURE_DEFAULT_KEYS:
+            # In production (debug=False), refuse to start with insecure keys
+            debug = info.data.get("debug", False)
+            if not debug:
+                raise ValueError(
+                    "FATAL: Insecure default API key detected. "
+                    "Set the API_KEY environment variable to a secure value (minimum 32 characters)."
+                )
             logger.warning(
                 "SECURITY WARNING: Using insecure default API key. "
                 "Set the API_KEY environment variable to a secure value in production."
             )
+        elif len(v) < 32:
+            debug = info.data.get("debug", False)
+            if not debug:
+                raise ValueError(
+                    f"FATAL: API key too short ({len(v)} chars). "
+                    "Production API keys must be at least 32 characters."
+                )
         return v
 
     # Database

@@ -22,6 +22,9 @@ import SettingsPage from './pages/SettingsPage'
 import DashboardPage from './pages/DashboardPage'
 import SearchPage from './pages/SearchPage'
 import YaraRulesPage from './pages/YaraRulesPage'
+import ErrorBoundary from './components/ErrorBoundary'
+import { useToast } from './components/ToastProvider'
+import { setToastFn } from './api/client'
 
 function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -30,6 +33,13 @@ function App() {
     if (stored !== null) return stored === 'true'
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
+
+  const { addToast } = useToast()
+
+  // Wire toast into the API client interceptors
+  useEffect(() => {
+    setToastFn(addToast)
+  }, [addToast])
 
   useEffect(() => {
     if (darkMode) {
@@ -88,6 +98,7 @@ function App() {
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
                 title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               >
                 {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -96,6 +107,7 @@ function App() {
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
               >
                 {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
@@ -130,16 +142,18 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Routes>
-          <Route path="/" element={<SubmitPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/queue" element={<QueuePage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/reports/:id" element={<ReportDetailPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/yara-rules" element={<YaraRulesPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<ErrorBoundary><SubmitPage /></ErrorBoundary>} />
+            <Route path="/dashboard" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
+            <Route path="/queue" element={<ErrorBoundary><QueuePage /></ErrorBoundary>} />
+            <Route path="/reports" element={<ErrorBoundary><ReportsPage /></ErrorBoundary>} />
+            <Route path="/reports/:id" element={<ErrorBoundary><ReportDetailPage /></ErrorBoundary>} />
+            <Route path="/search" element={<ErrorBoundary><SearchPage /></ErrorBoundary>} />
+            <Route path="/yara-rules" element={<ErrorBoundary><YaraRulesPage /></ErrorBoundary>} />
+            <Route path="/settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
+          </Routes>
+        </ErrorBoundary>
       </main>
     </div>
   )

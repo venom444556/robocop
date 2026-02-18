@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malware Analysis Report - RPT-2024-0847</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .report-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 40px;
+        }
+        .tlp-banner {
+            padding: 8px 20px;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9em;
+            border-radius: 5px 5px 0 0;
+            margin: -40px -40px 20px -40px;
+            text-align: center;
+        }
+        .tlp-banner.tlp-amber { background: #ff8c00; }
+        h1 { color: #1a1a2e; border-bottom: 3px solid #e94560; padding-bottom: 10px; margin-bottom: 20px; }
+        h2 { color: #16213e; margin-top: 30px; margin-bottom: 15px; }
+        h3 { color: #0f3460; margin-top: 20px; margin-bottom: 10px; }
+        .metadata { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .metadata p { margin: 5px 0; }
+        .metadata strong { color: #16213e; }
+        .severity-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 0.85em;
+            color: white;
+        }
+        .severity-critical { background: #dc3545; }
+        .severity-high { background: #fd7e14; }
+        .severity-medium { background: #ffc107; color: #333; }
+        .severity-low { background: #28a745; }
+        .severity-informational { background: #17a2b8; }
+        .confidence-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .confidence-high { background: #d4edda; color: #155724; }
+        .confidence-medium { background: #fff3cd; color: #856404; }
+        .confidence-low { background: #f8d7da; color: #721c24; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #16213e; color: white; }
+        tr:hover { background: #f5f5f5; }
+        .ioc-value { font-family: monospace; font-size: 0.9em; word-break: break-all; }
+        .section { margin-bottom: 30px; }
+        pre {
+            background: #1a1a2e;
+            color: #e94560;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+        code { font-family: 'Fira Code', monospace; }
+        .tag {
+            display: inline-block;
+            background: #e94560;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+        .mitre-technique {
+            background: #0f3460;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin: 3px;
+            display: inline-block;
+        }
+        .mitre-validated { background: #155724; }
+        .mitre-supposition { background: #856404; }
+        .finding-card {
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #6c757d;
+        }
+        .finding-card.finding-critical { border-left-color: #dc3545; }
+        .finding-card.finding-high { border-left-color: #fd7e14; }
+        .finding-card.finding-medium { border-left-color: #ffc107; }
+        .finding-card.finding-low { border-left-color: #28a745; }
+        .priority-p1 { color: #dc3545; font-weight: bold; }
+        .priority-p2 { color: #fd7e14; font-weight: bold; }
+        .priority-p3 { color: #ffc107; font-weight: bold; }
+        .priority-p4 { color: #6c757d; font-weight: bold; }
+        .evidence-item {
+            background: #f8f9fa;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin: 3px 0;
+            font-size: 0.9em;
+        }
+        .narrative { white-space: pre-wrap; }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .mockup-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 20px;
+            text-align: center;
+            font-size: 0.85em;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="mockup-banner">
+        SAMPLE REPORT MOCKUP &mdash; This is a demonstration of the Malware Analysis Platform report format with realistic sample data.
+    </div>
+
+    <div class="report-container">
+        <div class="tlp-banner tlp-amber">
+            TLP:AMBER - Handle according to TLP protocol
+        </div>
+
+        <h1>Malware Analysis Report</h1>
+
+        <div class="metadata">
+            <p><strong>Report ID:</strong> RPT-2024-0847</p>
+            <p><strong>Generated:</strong> 2024-12-19T14:32:07Z</p>
+            <p><strong>Type:</strong> file</p>
+            <p><strong>Filename:</strong> invoice_Q4_2024.ps1</p>
+            <p><strong>SHA256:</strong> <span class="ioc-value">a1b2c3d4e5f67890abcdef1234567890a1b2c3d4e5f67890abcdef1234567890</span></p>
+            <p><strong>Risk Level:</strong> <span class="severity-badge severity-critical">CRITICAL</span></p>
+            <p><strong>Severity:</strong> <span class="severity-badge severity-critical">CRITICAL</span></p>
+            <p><strong>Confidence Score:</strong> 92%</p>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="section">
+            <h2>Executive Summary</h2>
+            <div class="narrative">The submitted file "invoice_Q4_2024.ps1" is a multi-stage PowerShell dropper designed to establish persistent access to compromised systems. The script uses Base64 encoding and string concatenation to obfuscate a download cradle that retrieves a second-stage payload from a command-and-control server at updates.microsoftsecurity-cdn[.]com over HTTPS.
+
+Upon execution, the script performs the following high-risk actions:
+1. Bypasses PowerShell execution policy via -ExecutionPolicy Bypass flag
+2. Downloads an encrypted payload from the C2 infrastructure
+3. Decrypts and executes the payload in memory using Invoke-Expression (fileless execution)
+4. Creates a scheduled task "WindowsSecurityUpdate" for persistence (runs every 4 hours)
+5. Adds a registry run key as a secondary persistence mechanism
+6. Exfiltrates basic system reconnaissance data (hostname, username, IP, installed AV) to the C2
+
+The obfuscation techniques and infrastructure patterns are consistent with the FIN7 threat group's tooling, specifically their POWERPLANT backdoor family. The C2 domain was registered 3 days before this sample was first observed, using privacy-protected WHOIS registration through Namecheap.</div>
+        </div>
+
+        <!-- Technical Analysis -->
+        <div class="section">
+            <h2>Technical Analysis</h2>
+            <div class="narrative">Static analysis reveals a 47-line PowerShell script employing multiple layers of obfuscation:
+
+Layer 1 - String Concatenation: Variable names are constructed from character arrays to evade signature-based detection. The IEX (Invoke-Expression) command is built as ('I'+'EX') and the download URL is split across 6 variables joined at runtime.
+
+Layer 2 - Base64 Encoding: The core payload delivery logic is wrapped in a Base64-encoded block decoded via [System.Convert]::FromBase64String(). The decoded content performs the actual HTTP request using System.Net.WebClient.
+
+Layer 3 - XOR Decryption: The downloaded second-stage payload is XOR-encrypted with a 16-byte key embedded in the script (0x4D,0x41,0x4C,0x57,...). This prevents network-level inspection of the payload content.
+
+Network behavior analysis indicates the following sequence:
+- DNS query for updates.microsoftsecurity-cdn[.]com resolving to 185.220.101[.]42
+- HTTPS GET /api/v2/update?id={MACHINE_GUID} to download encrypted payload
+- HTTPS POST /api/v2/checkin with Base64-encoded system info
+
+The scheduled task uses schtasks.exe with the /create /tn "WindowsSecurityUpdate" /tr parameters, executing the original script from %APPDATA%\Microsoft\Windows\update.ps1. The registry persistence writes to HKCU\Software\Microsoft\Windows\CurrentVersion\Run with the value name "SecurityHealthService".</div>
+        </div>
+
+        <!-- Threat Hunt Findings -->
+        <div class="section">
+            <h2>Threat Hunt Findings</h2>
+
+            <div class="finding-card finding-critical">
+                <h3>THF-001: Active Command-and-Control Communication</h3>
+                <p>
+                    <span class="severity-badge severity-critical">Critical</span>
+                    <span class="confidence-badge confidence-high">Confidence: High</span>
+                    <span class="tag">Block immediately</span>
+                </p>
+                <p style="margin-top:10px;">The script establishes outbound HTTPS communication with a confirmed malicious C2 server. The domain updates.microsoftsecurity-cdn[.]com was registered 3 days prior using privacy-guarded registration, a common pattern for short-lived C2 infrastructure. The IP 185.220.101[.]42 is hosted on a bulletproof hosting provider previously associated with FIN7 operations.</p>
+                <div style="margin-top:10px;">
+                    <strong>Evidence:</strong>
+                    <div class="evidence-item">[domain] <code>updates.microsoftsecurity-cdn[.]com</code> &mdash; Static analysis: extracted from decoded Base64 payload</div>
+                    <div class="evidence-item">[ip] <code>185.220.101.42</code> &mdash; DNS resolution of C2 domain</div>
+                    <div class="evidence-item">[url] <code>https://updates.microsoftsecurity-cdn[.]com/api/v2/update</code> &mdash; Payload download endpoint</div>
+                    <div class="evidence-item">[behavior] <code>System.Net.WebClient.DownloadString()</code> &mdash; Download cradle in deobfuscated code</div>
+                </div>
+            </div>
+
+            <div class="finding-card finding-high">
+                <h3>THF-002: Dual Persistence Mechanisms</h3>
+                <p>
+                    <span class="severity-badge severity-high">High</span>
+                    <span class="confidence-badge confidence-high">Confidence: High</span>
+                    <span class="tag">Remediate</span>
+                </p>
+                <p style="margin-top:10px;">The malware establishes two independent persistence mechanisms to survive system reboots: a scheduled task running every 4 hours and a registry Run key. The dual approach ensures that removing only one persistence vector leaves the system still compromised. Both mechanisms point to a copy of the dropper stored in %APPDATA%.</p>
+                <div style="margin-top:10px;">
+                    <strong>Evidence:</strong>
+                    <div class="evidence-item">[registry] <code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run\SecurityHealthService</code> &mdash; Registry persistence key</div>
+                    <div class="evidence-item">[scheduled_task] <code>WindowsSecurityUpdate</code> &mdash; Scheduled task for recurring execution</div>
+                    <div class="evidence-item">[filepath] <code>%APPDATA%\Microsoft\Windows\update.ps1</code> &mdash; Dropper staging location</div>
+                </div>
+            </div>
+
+            <div class="finding-card finding-medium">
+                <h3>THF-003: Defense Evasion via Multi-Layer Obfuscation</h3>
+                <p>
+                    <span class="severity-badge severity-medium">Medium</span>
+                    <span class="confidence-badge confidence-medium">Confidence: Medium</span>
+                    <span class="tag">Monitor</span>
+                </p>
+                <p style="margin-top:10px;">The script uses three distinct obfuscation layers (string concatenation, Base64 encoding, XOR encryption) to evade both static and dynamic analysis. The execution policy bypass and in-memory execution via Invoke-Expression indicate awareness of common endpoint detection capabilities. This level of obfuscation sophistication is consistent with organized threat actor tooling rather than commodity malware.</p>
+                <div style="margin-top:10px;">
+                    <strong>Evidence:</strong>
+                    <div class="evidence-item">[technique] <code>-ExecutionPolicy Bypass</code> &mdash; PowerShell policy bypass flag</div>
+                    <div class="evidence-item">[technique] <code>IEX ([System.Convert]::FromBase64String(...))</code> &mdash; In-memory execution of decoded payload</div>
+                    <div class="evidence-item">[technique] <code>XOR key: 0x4D,0x41,0x4C,0x57</code> &mdash; Payload decryption key</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MITRE ATT&CK -->
+        <div class="section">
+            <h2>MITRE ATT&CK Techniques</h2>
+            <p><strong>Validation Rate:</strong> 83%
+               (5 validated / 6 total)</p>
+
+            <h3>Confirmed Techniques</h3>
+            <span class="mitre-technique mitre-validated">T1059.001: PowerShell</span>
+            <span class="mitre-technique mitre-validated">T1547.001: Registry Run Keys / Startup Folder</span>
+            <span class="mitre-technique mitre-validated">T1071.001: Web Protocols</span>
+            <span class="mitre-technique mitre-validated">T1027: Obfuscated Files or Information</span>
+            <span class="mitre-technique mitre-validated">T1053.005: Scheduled Task</span>
+
+            <h3>Unverified (LLM Supposition)</h3>
+            <span class="mitre-technique mitre-supposition">T1105: Ingress Tool Transfer</span>
+        </div>
+
+        <!-- IOCs -->
+        <div class="section">
+            <h2>Indicators of Compromise</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Value</th>
+                        <th>Context</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>domain</td>
+                        <td class="ioc-value">updates.microsoftsecurity-cdn[.]com</td>
+                        <td>Primary C2 server</td>
+                    </tr>
+                    <tr>
+                        <td>domain</td>
+                        <td class="ioc-value">telemetry.win-update[.]net</td>
+                        <td>Secondary C2 / exfil endpoint</td>
+                    </tr>
+                    <tr>
+                        <td>ipv4</td>
+                        <td class="ioc-value">185.220.101.42</td>
+                        <td>C2 server IP (AS9009 - M247 Ltd)</td>
+                    </tr>
+                    <tr>
+                        <td>ipv4</td>
+                        <td class="ioc-value">91.215.85.17</td>
+                        <td>Secondary C2 IP (AS48693)</td>
+                    </tr>
+                    <tr>
+                        <td>url</td>
+                        <td class="ioc-value">https://updates.microsoftsecurity-cdn[.]com/api/v2/update</td>
+                        <td>Payload download URL</td>
+                    </tr>
+                    <tr>
+                        <td>url</td>
+                        <td class="ioc-value">https://updates.microsoftsecurity-cdn[.]com/api/v2/checkin</td>
+                        <td>Beacon/exfil endpoint</td>
+                    </tr>
+                    <tr>
+                        <td>sha256</td>
+                        <td class="ioc-value">a1b2c3d4e5f67890abcdef1234567890a1b2c3d4e5f67890abcdef1234567890</td>
+                        <td>Primary sample hash</td>
+                    </tr>
+                    <tr>
+                        <td>email</td>
+                        <td class="ioc-value">admin@microsoftsecurity-cdn[.]com</td>
+                        <td>Domain registrant (WHOIS)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Investigation Plan -->
+        <div class="section">
+            <h2>Investigation &amp; Response Plan</h2>
+
+            <h3>Investigation Steps</h3>
+            <table>
+                <thead><tr><th>Priority</th><th>Action</th><th>Rationale</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td><span class="priority-p1">P1</span></td>
+                        <td>Search SIEM for DNS queries to updates.microsoftsecurity-cdn[.]com and telemetry.win-update[.]net across all endpoints in the last 30 days</td>
+                        <td>Identify scope of compromise beyond the initial detection point</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-p1">P1</span></td>
+                        <td>Check firewall/proxy logs for connections to 185.220.101.42 and 91.215.85.17 on ports 443 and 8443</td>
+                        <td>Confirm whether C2 communication was successful and identify affected hosts</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-p2">P2</span></td>
+                        <td>Query EDR for scheduled tasks named "WindowsSecurityUpdate" and registry keys matching "SecurityHealthService" under Run keys</td>
+                        <td>Identify hosts with active persistence mechanisms requiring remediation</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-p2">P2</span></td>
+                        <td>Search email gateway logs for the original delivery vector (likely phishing email with .ps1 attachment or link)</td>
+                        <td>Determine initial access method and identify other recipients who may have received the same campaign</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Containment Actions</h3>
+            <table>
+                <thead><tr><th>Priority</th><th>Action</th><th>Scope</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td><span class="priority-p1">P1</span></td>
+                        <td>Block C2 domains and IPs at firewall/DNS sinkhole</td>
+                        <td>Network perimeter</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-p1">P1</span></td>
+                        <td>Isolate confirmed compromised hosts from the network</td>
+                        <td>Affected endpoints</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-p2">P2</span></td>
+                        <td>Push updated detection signatures to endpoint protection</td>
+                        <td>All managed endpoints</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Eradication &amp; Recovery</h3>
+            <ul style="padding-left:20px;">
+                <li>Remove scheduled task "WindowsSecurityUpdate" from affected hosts</li>
+                <li>Delete registry value HKCU\...\Run\SecurityHealthService</li>
+                <li>Remove %APPDATA%\Microsoft\Windows\update.ps1 and any downloaded payloads</li>
+                <li>Reset credentials for any accounts that were active on compromised hosts</li>
+                <li>Re-image hosts if second-stage payload execution is confirmed</li>
+            </ul>
+
+            <p style="margin-top:15px;"><strong>Analyst Notes:</strong> The FIN7 attribution is assessed with moderate confidence based on infrastructure overlap and tooling patterns. Recommend sharing IOCs with sector ISAC and checking against FIN7 indicators published by Mandiant (UNC2546) and CrowdStrike (CARBON SPIDER).</p>
+        </div>
+
+        <!-- CVE Intelligence -->
+        <div class="section">
+            <h2>CVE Intelligence</h2>
+            <table>
+                <thead><tr><th>CVE ID</th><th>CVSS</th><th>Severity</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td><strong>CVE-2023-36884</strong></td>
+                        <td>8.8</td>
+                        <td>High</td>
+                        <td>Office and Windows HTML Remote Code Execution Vulnerability. Exploited in the wild by threat actors using specially crafted documents, relevant to the phishing delivery vector observed.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>CVE-2024-21412</strong></td>
+                        <td>8.1</td>
+                        <td>High</td>
+                        <td>Internet Shortcut Files Security Feature Bypass Vulnerability. Allows bypass of Mark-of-the-Web protections, potentially used to execute the PowerShell script without SmartScreen warnings.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="section">
+            <h2>Recommendations</h2>
+            <ul style="padding-left:20px;">
+                <li><strong>Immediate:</strong> Block all identified IOCs (domains, IPs, hashes) at network perimeter and endpoint level. Enforce PowerShell Constrained Language Mode on all workstations via Group Policy.</li>
+                <li><strong>Short-term:</strong> Enable PowerShell Script Block Logging (Event ID 4104) and Module Logging across all endpoints to improve visibility into future PowerShell-based attacks.</li>
+                <li><strong>Short-term:</strong> Implement application whitelisting to prevent execution of unsigned scripts from user-writable directories (%APPDATA%, %TEMP%).</li>
+                <li><strong>Medium-term:</strong> Deploy AMSI (Antimalware Scan Interface) integration with your endpoint protection to detect obfuscated PowerShell at runtime, regardless of static signature evasion.</li>
+                <li><strong>Long-term:</strong> Conduct a phishing simulation targeting the affected business unit and provide targeted security awareness training on recognizing malicious file attachments, particularly scripts disguised as invoices or business documents.</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>Generated by Malware Analysis Platform</p>
+            <p>Report Time: 2024-12-19T14:32:07Z</p>
+            <p>Classification: TLP:AMBER</p>
+        </div>
+    </div>
+</body>
+</html>

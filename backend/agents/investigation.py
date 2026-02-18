@@ -1,11 +1,16 @@
 """Claude DFIR Investigation Agent for generating actionable response plans."""
 
+import logging
 from typing import Dict, List, Optional, Any
 import json
 import re
 
+from .base import BaseAgent
 
-class InvestigationAgent:
+logger = logging.getLogger(__name__)
+
+
+class InvestigationAgent(BaseAgent):
     """
     Claude-powered agent for generating DFIR investigation and incident response plans.
     Inspired by Multi-Agent SOC Analyst investigation workflows.
@@ -30,29 +35,7 @@ Format all output as valid JSON."""
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         """Initialize the Investigation Agent."""
-        from config import get_settings
-        settings = get_settings()
-        self.api_key = api_key or settings.anthropic_api_key
-        self.model = model or settings.claude_model
-
-    async def _call_claude(self, prompt: str, max_tokens: int = 4096) -> str:
-        """Make a call to Claude API."""
-        import anthropic
-
-        if not self.api_key:
-            return "Error: Anthropic API key not configured"
-
-        try:
-            client = anthropic.AsyncAnthropic(api_key=self.api_key)
-            message = await client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                system=self.SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return message.content[0].text
-        except Exception as e:
-            return f"Error calling Claude API: {str(e)}"
+        super().__init__(api_key=api_key, model=model, system_prompt=self.SYSTEM_PROMPT)
 
     async def generate_investigation_plan(self, analysis_data: Dict,
                                            iocs: List[Dict],
@@ -147,7 +130,7 @@ Provide a structured JSON response with this exact schema:
                     "model_used": self.model
                 }
         except json.JSONDecodeError:
-            pass
+            logger.warning("Failed to parse JSON from investigation plan response", exc_info=True)
 
         return {
             "investigation_plan": {"raw_response": result},
@@ -197,6 +180,6 @@ Return JSON:
             if json_match:
                 return json.loads(json_match.group())
         except json.JSONDecodeError:
-            pass
+            logger.warning("Failed to parse JSON from containment priorities response", exc_info=True)
 
         return {"containment_priorities": result, "model_used": self.model}

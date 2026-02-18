@@ -4,6 +4,7 @@ Provides rate limiting, API key authentication, and structured request logging.
 """
 
 import time
+import uuid
 import logging
 import secrets
 import collections
@@ -116,8 +117,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
     # Paths that do not require API key authentication
     EXEMPT_PATHS = {"/", "/health", "/docs", "/openapi.json"}
 
-    # Path prefixes that are exempt (webhooks use their own auth mechanism)
-    EXEMPT_PREFIXES = ("/api/webhooks/",)
+    # Path prefixes that are exempt (webhooks use their own auth mechanism, WebSocket can't send custom headers)
+    EXEMPT_PREFIXES = ("/api/webhooks/", "/ws/")
 
     async def dispatch(self, request, call_next):
         path = request.url.path
@@ -134,6 +135,22 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Only enforce auth on /api/ routes
         if not path.startswith("/api/"):
             return await call_next(request)
+
+        # CSRF defense: reject cross-origin state-changing requests
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            origin = request.headers.get("origin")
+            if origin:
+                settings = get_settings()
+                allowed_origins = {o.strip() for o in settings.cors_origins.split(",")}
+                if origin not in allowed_origins:
+                    logger.warning(
+                        "CSRF: Rejected cross-origin %s from origin=%s path=%s",
+                        request.method, origin, path,
+                    )
+                    return JSONResponse(
+                        status_code=403,
+                        content={"detail": "Cross-origin request rejected."},
+                    )
 
         # Validate API key
         settings = get_settings()
@@ -180,9 +197,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         path = request.url.path
 
+        # Generate correlation ID for every request (even skipped ones)
+        request_id = str(uuid.uuid4())
+        request.state.request_id = request_id
+
         # Skip logging for noisy endpoints
         if path in self.SKIP_PATHS:
-            return await call_next(request)
+            response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
+            return response
 
         client_ip = self._get_client_ip(request)
         start_time = time.monotonic()
@@ -193,8 +216,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             # Log the failed request before re-raising
             duration_ms = (time.monotonic() - start_time) * 1000
             logger.error(
-                'request_log: {"method": "%s", "path": "%s", "status_code": 500, '
-                '"duration_ms": %.1f, "client_ip": "%s", "error": true}',
+                'request_log: {"request_id": "%s", "method": "%s", "path": "%s", '
+                '"status_code": 500, "duration_ms": %.1f, "client_ip": "%s", "error": true}',
+                request_id,
                 request.method,
                 path,
                 duration_ms,
@@ -207,8 +231,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         logger.log(
             log_level,
-            'request_log: {"method": "%s", "path": "%s", "status_code": %d, '
-            '"duration_ms": %.1f, "client_ip": "%s"}',
+            'request_log: {"request_id": "%s", "method": "%s", "path": "%s", '
+            '"status_code": %d, "duration_ms": %.1f, "client_ip": "%s"}',
+            request_id,
             request.method,
             path,
             response.status_code,
@@ -216,4 +241,5 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             client_ip,
         )
 
+        response.headers["X-Request-ID"] = request_id
         return response

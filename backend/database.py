@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, ForeignKey,
-    JSON, Boolean, Enum as SQLEnum, create_engine
+    JSON, Boolean, Enum as SQLEnum, create_engine, UniqueConstraint, Index
 )
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
@@ -79,13 +79,13 @@ class Submission(Base):
     type = Column(SQLEnum(SubmissionType), nullable=False)
     filename = Column(String(255), nullable=True)
     original_url = Column(Text, nullable=True)
-    file_hash_sha256 = Column(String(64), nullable=True)
-    status = Column(SQLEnum(SubmissionStatus), default=SubmissionStatus.PENDING)
+    file_hash_sha256 = Column(String(64), nullable=True, index=True)
+    status = Column(SQLEnum(SubmissionStatus), default=SubmissionStatus.PENDING, index=True)
     error_message = Column(Text, nullable=True)
     severity = Column(SQLEnum(SeverityLevel), nullable=True)
     tlp_marking = Column(SQLEnum(TLPMarking), nullable=True)
     confidence_score = Column(Integer, nullable=True)  # 0-100
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
     completed_at = Column(DateTime, nullable=True)
 
     # Relationships
@@ -101,7 +101,7 @@ class AnalysisResult(Base):
     __tablename__ = "analysis_results"
 
     id = Column(Integer, primary_key=True, index=True)
-    submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=False)
+    submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=False, index=True)
     analyzer = Column(String(50), nullable=False)  # e.g., "script_analyzer", "ioc_extractor"
     results_json = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -113,11 +113,14 @@ class AnalysisResult(Base):
 class IOC(Base):
     """Extracted Indicators of Compromise."""
     __tablename__ = "iocs"
+    __table_args__ = (
+        UniqueConstraint("submission_id", "type", "value", name="uq_ioc_per_submission"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=False)
-    type = Column(SQLEnum(IOCType), nullable=False)
-    value = Column(Text, nullable=False)
+    submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=False, index=True)
+    type = Column(SQLEnum(IOCType), nullable=False, index=True)
+    value = Column(Text, nullable=False, index=True)
     context = Column(Text, nullable=True)  # Where/how it was found
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -131,7 +134,7 @@ class Enrichment(Base):
     __tablename__ = "enrichment"
 
     id = Column(Integer, primary_key=True, index=True)
-    ioc_id = Column(Integer, ForeignKey("iocs.id"), nullable=False)
+    ioc_id = Column(Integer, ForeignKey("iocs.id"), nullable=False, index=True)
     source = Column(String(50), nullable=False)  # e.g., "virustotal", "shodan"
     data_json = Column(JSON, nullable=False)
     queried_at = Column(DateTime, default=datetime.utcnow)
@@ -192,11 +195,11 @@ class ThreatIntelRecord(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=True)
-    record_type = Column(String(50), nullable=False)  # "finding", "ioc", "technique"
+    record_type = Column(String(50), nullable=False, index=True)  # "finding", "ioc", "technique"
     data_json = Column(JSON, nullable=False)
     severity = Column(SQLEnum(SeverityLevel), nullable=True)
     confidence = Column(SQLEnum(ConfidenceLevel), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
 class YaraRule(Base):

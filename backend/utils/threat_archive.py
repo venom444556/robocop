@@ -144,6 +144,7 @@ class ThreatIntelArchive:
                             if data.get("value") == ioc_value:
                                 matches.append(record)
                         except json.JSONDecodeError:
+                            logger.debug("Skipping malformed JSONL line in archive %s", archive_path)
                             continue
             except Exception as e:
                 logger.warning(f"Error reading archive {archive_path}: {e}")

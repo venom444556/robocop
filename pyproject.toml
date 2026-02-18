@@ -1,0 +1,18 @@
+[project]
+name = "malware-analysis-platform"
+version = "1.0.0"
+description = "Static malware analysis platform with Claude AI reasoning"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["config", "database", "middleware", "agents", "analyzers", "enrichment", "api", "utils"]

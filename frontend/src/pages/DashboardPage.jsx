@@ -9,7 +9,6 @@ import {
   TrendingUp,
   Target,
   Search,
-  Loader2,
   AlertCircle,
   ArrowRight,
   BarChart3,
@@ -17,6 +16,8 @@ import {
 import { format, subDays } from 'date-fns'
 import { analysisApi, submissionsApi } from '../api/client'
 import client from '../api/client'
+import SeverityBadge from '../components/SeverityBadge'
+import { DashboardSkeleton } from '../components/Skeleton'
 
 const severityColors = {
   critical: 'bg-red-500',
@@ -24,14 +25,6 @@ const severityColors = {
   medium: 'bg-yellow-500',
   low: 'bg-green-500',
   informational: 'bg-blue-500',
-}
-
-const severityTextColors = {
-  critical: 'text-red-600',
-  high: 'text-orange-600',
-  medium: 'text-yellow-600',
-  low: 'text-green-600',
-  informational: 'text-blue-600',
 }
 
 const tacticOrder = [
@@ -49,14 +42,11 @@ function DashboardPage() {
       return response.data
     },
     refetchInterval: 30000,
+    refetchIntervalInBackground: false,
   })
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   if (error) {
@@ -214,14 +204,7 @@ function DashboardPage() {
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{finding.title}</p>
                     <p className="text-xs text-gray-500">#{finding.submission_id}</p>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 ml-2 ${
-                    finding.severity === 'critical' ? 'bg-red-600 text-white' :
-                    finding.severity === 'high' ? 'bg-orange-500 text-white' :
-                    finding.severity === 'medium' ? 'bg-yellow-500 text-white' :
-                    'bg-gray-200 text-gray-700'
-                  }`}>
-                    {finding.severity}
-                  </span>
+                  <SeverityBadge severity={finding.severity} size="sm" />
                 </Link>
               ))}
             </div>
@@ -237,7 +220,7 @@ function DashboardPage() {
             MITRE ATT&CK Heatmap
           </h3>
           {stats?.mitre_heatmap?.length > 0 ? (
-            <div>
+            <div role="grid" aria-label="MITRE ATT&CK technique heatmap">
               {/* Group by tactic */}
               {tacticOrder.map(tactic => {
                 const techniques = stats.mitre_heatmap.filter(t => t.tactic === tactic)
@@ -245,7 +228,7 @@ function DashboardPage() {
                 return (
                   <div key={tactic} className="mb-3">
                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase">{tactic}</p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5" role="row">
                       {techniques.map((tech, idx) => {
                         const intensity = Math.min(tech.count / maxTechniqueCount, 1)
                         const r = Math.round(139 + (220 - 139) * (1 - intensity))
@@ -254,9 +237,12 @@ function DashboardPage() {
                         return (
                           <span
                             key={idx}
-                            className="px-2 py-1 rounded text-xs font-medium text-white"
+                            role="gridcell"
+                            tabIndex={0}
+                            className="px-2 py-1 rounded text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-primary-400"
                             style={{ backgroundColor: `rgb(${r}, ${g}, ${b})` }}
                             title={`${tech.technique_id}: ${tech.technique_name} (${tech.count} occurrences)`}
+                            aria-label={`${tech.technique_id}: ${tech.technique_name}, ${tech.count} occurrences`}
                           >
                             {tech.technique_id}
                             <span className="ml-1 opacity-75">({tech.count})</span>

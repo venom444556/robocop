@@ -18,6 +18,7 @@ import {
 import { format } from 'date-fns'
 import { submissionsApi } from '../api/client'
 import client from '../api/client'
+import { TableSkeleton } from '../components/Skeleton'
 
 const statusConfig = {
   pending: { icon: Clock, color: 'text-gray-500', bg: 'bg-gray-100', darkBg: 'dark:bg-gray-700', darkColor: 'dark:text-gray-300', label: 'Pending' },
@@ -114,11 +115,7 @@ function QueuePage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
-      </div>
-    )
+    return <TableSkeleton rows={8} columns={6} />
   }
 
   if (error) {
@@ -316,6 +313,7 @@ function QueuePage() {
                             onClick={() => handleReanalyze(submission.id)}
                             disabled={reanalyzeMutation.isPending}
                             title="Reanalyze"
+                            aria-label={`Reanalyze submission ${submission.id}`}
                             className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                           >
                             {reanalyzeMutation.isPending ? (
@@ -333,6 +331,7 @@ function QueuePage() {
                         <button
                           onClick={() => setDeleteConfirmId(submission.id)}
                           title="Delete submission"
+                          aria-label={`Delete submission ${submission.id}`}
                           className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-danger-600 dark:hover:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/30 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                         >
                           <Trash2 className="h-4 w-4" />

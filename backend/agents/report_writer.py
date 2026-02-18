@@ -4,8 +4,10 @@ from typing import Dict, List, Optional, Any
 import json
 from datetime import datetime
 
+from .base import BaseAgent
 
-class ReportWriterAgent:
+
+class ReportWriterAgent(BaseAgent):
     """
     Claude-powered agent for generating comprehensive analysis reports.
     """
@@ -33,29 +35,7 @@ confidence levels for any assessments."""
             api_key: Anthropic API key
             model: Claude model to use
         """
-        from config import get_settings
-        settings = get_settings()
-        self.api_key = api_key or settings.anthropic_api_key
-        self.model = model or settings.claude_model
-
-    async def _call_claude(self, prompt: str, max_tokens: int = 8192) -> str:
-        """Make a call to Claude API."""
-        import anthropic
-
-        if not self.api_key:
-            return "Error: Anthropic API key not configured"
-
-        try:
-            client = anthropic.AsyncAnthropic(api_key=self.api_key)
-            message = await client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                system=self.SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return message.content[0].text
-        except Exception as e:
-            return f"Error calling Claude API: {str(e)}"
+        super().__init__(api_key=api_key, model=model, system_prompt=self.SYSTEM_PROMPT)
 
     async def generate_narrative(self, submission: Any, analysis_results: List[Dict],
                                  iocs: List[Dict], enrichment_data: Dict) -> str:
