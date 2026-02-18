@@ -106,7 +106,7 @@ class TestSearchIOCs:
         assert response.status_code == 200
         data = response.json()
         assert data["total_count"] == 0
-        assert data["items"] == []
+        assert data["results"] == []
 
     @pytest.mark.asyncio
     async def test_search_iocs_requires_query(self, client):
