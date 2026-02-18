@@ -6,7 +6,7 @@ import hashlib
 
 
 class IOCExtractor:
-    """Extract various IOCs from text content using regex patterns and ioc-finder."""
+    """Extract various IOCs from text content using regex patterns."""
 
     def __init__(self):
         """Initialize IOC patterns."""
@@ -146,6 +146,8 @@ class IOCExtractor:
             "hash_sha256": set(),
             "email": set(),
             "registry_key": set(),
+            "file_path": set(),
+            "mutex": set(),
             "filename": set(),
             "user_agent": set(),
         }
@@ -212,6 +214,33 @@ class IOCExtractor:
         for ua in user_agents:
             if len(ua) > 20:  # Minimum user agent length
                 iocs["user_agent"].add(ua.strip())
+
+        # Extract file paths
+        # Exclude common non-IOC paths (schema URLs, XML namespaces, etc.)
+        fp_exclusions = {'C:\\Windows', 'C:\\Program Files', 'C:\\Users\\Public'}
+        win_paths = self.windows_path_pattern.findall(content)
+        for path in win_paths:
+            if len(path) > 5 and not any(path.startswith(ex) for ex in fp_exclusions):
+                iocs["file_path"].add(path)
+        unix_paths = self.unix_path_pattern.findall(content)
+        for path in unix_paths:
+            # Filter out common false positives (URLs already captured, short paths, XML/HTML)
+            if (len(path) > 5 and not path.startswith('//')
+                    and not path.startswith('/>')
+                    and not path.endswith('.html')
+                    and path.count('/') >= 2):
+                iocs["file_path"].add(path)
+
+        # Extract mutexes (look for mutex creation context)
+        mutex_contexts = [
+            re.compile(r'(?:CreateMutex|OpenMutex)\w*\s*\([^,]*,\s*[^,]*,\s*["\']([^"\']+)["\']', re.IGNORECASE),
+            re.compile(r'(?:Global\\|Local\\)([A-Za-z0-9_\-]{4,})', re.IGNORECASE),
+            re.compile(r'mutex[_\s]*(?:name|=|:)\s*["\']([^"\']+)["\']', re.IGNORECASE),
+        ]
+        for pattern in mutex_contexts:
+            for m in pattern.findall(content):
+                if len(m) >= 4:
+                    iocs["mutex"].add(m)
 
         # Convert sets to lists
         return {k: list(v) for k, v in iocs.items() if v}

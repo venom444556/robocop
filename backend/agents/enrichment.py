@@ -1,6 +1,7 @@
 """Claude Enrichment Agent for orchestrating intelligence lookups and correlation."""
 
 import logging
+import re
 from typing import Dict, List, Optional, Any
 import json
 import asyncio
@@ -73,7 +74,6 @@ Return a prioritized list in JSON format:
         result = await self._call_claude(prompt, max_tokens=2048)
 
         try:
-            import re
             json_match = re.search(r'\{[\s\S]*\}', result)
             if json_match:
                 return json.loads(json_match.group())
@@ -132,7 +132,6 @@ Provide:
         result = await self._call_claude(prompt)
 
         try:
-            import re
             json_match = re.search(r'\{[\s\S]*\}', result)
             if json_match:
                 return json.loads(json_match.group())
@@ -352,7 +351,6 @@ Return at most 5 keywords. Only include keywords likely to find relevant CVEs.""
         keywords_result = await self._call_claude(keyword_prompt, max_tokens=512)
 
         # Parse keywords
-        import re
         keywords = []
         try:
             json_match = re.search(r'\{[\s\S]*\}', keywords_result)

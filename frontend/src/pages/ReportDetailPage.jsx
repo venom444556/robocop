@@ -903,14 +903,14 @@ function ReportDetailPage() {
                         </a>
                       </td>
                       <td className="py-2 px-3">
-                        {cve.cvss_v3_score != null && (
+                        {cve.cvss_score != null && (
                           <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                            cve.cvss_v3_score >= 9.0 ? 'bg-red-600 text-white' :
-                            cve.cvss_v3_score >= 7.0 ? 'bg-orange-500 text-white' :
-                            cve.cvss_v3_score >= 4.0 ? 'bg-yellow-500 text-white' :
+                            cve.cvss_score >= 9.0 ? 'bg-red-600 text-white' :
+                            cve.cvss_score >= 7.0 ? 'bg-orange-500 text-white' :
+                            cve.cvss_score >= 4.0 ? 'bg-yellow-500 text-white' :
                             'bg-green-500 text-white'
                           }`}>
-                            {cve.cvss_v3_score}
+                            {cve.cvss_score}
                           </span>
                         )}
                       </td>

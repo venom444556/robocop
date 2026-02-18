@@ -115,4 +115,4 @@ class WhoisLookupClient:
                     "source": "whois",
                 }
             except Exception as e:
-                return {"error": f"WHOIS fallback failed: {str(e)}"}
+                return {"ip": ip_address, "found": False, "error": f"WHOIS fallback failed: {str(e)}", "source": "whois"}

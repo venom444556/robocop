@@ -79,3 +79,6 @@ n8n_data/
 
 # Windows artifacts
 nul
+
+# Claude Code local settings
+.claude/

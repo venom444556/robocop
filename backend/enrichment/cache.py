@@ -1,10 +1,7 @@
 """In-memory TTL cache for enrichment results."""
 
 import time
-import logging
 from typing import Any, Optional
-
-logger = logging.getLogger(__name__)
 
 
 class EnrichmentCache:

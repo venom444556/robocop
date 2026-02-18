@@ -105,6 +105,16 @@ class ScriptDecoder:
         if concat_decoded:
             return concat_decoded, concat_info
 
+        # Check for hex encoding
+        hex_decoded, hex_info = self._decode_hex(content)
+        if hex_decoded:
+            return hex_decoded, hex_info
+
+        # Check for ROT13 encoding
+        rot13_decoded, rot13_info = self._decode_rot13(content)
+        if rot13_decoded:
+            return rot13_decoded, rot13_info
+
         # Check for XOR encoding
         xor_decoded, xor_info = self._decode_xor(content)
         if xor_decoded:
@@ -366,6 +376,89 @@ class ScriptDecoder:
 
         return None, {}
 
+    def _decode_hex(self, content: str) -> Tuple[Optional[str], Dict]:
+        """Decode hex-encoded strings (0x48656C6C6F, \\x48\\x65, etc.)."""
+        patterns = [
+            # PowerShell hex: 0x48, 0x65, 0x6C, ...
+            (re.compile(r'(?:0x[0-9a-fA-F]{2}[,\s]*){5,}'), 'powershell_hex'),
+            # Escaped hex: \x48\x65\x6C\x6C\x6F
+            (re.compile(r'(?:\\x[0-9a-fA-F]{2}){5,}'), 'escaped_hex'),
+            # Continuous hex string assigned to variable (min 20 hex chars = 10 bytes)
+            (re.compile(r'["\']([0-9a-fA-F]{20,})["\']'), 'hex_string'),
+        ]
+
+        for pattern, hex_type in patterns:
+            matches = pattern.findall(content)
+            for match in matches:
+                try:
+                    if hex_type == 'powershell_hex':
+                        hex_vals = re.findall(r'0x([0-9a-fA-F]{2})', match)
+                        decoded = bytes(int(h, 16) for h in hex_vals).decode('utf-8', errors='ignore')
+                    elif hex_type == 'escaped_hex':
+                        hex_vals = re.findall(r'\\x([0-9a-fA-F]{2})', match)
+                        decoded = bytes(int(h, 16) for h in hex_vals).decode('utf-8', errors='ignore')
+                    else:
+                        decoded = bytes.fromhex(match).decode('utf-8', errors='ignore')
+
+                    if len(decoded) >= 3 and self._is_printable(decoded):
+                        return decoded, {
+                            "type": f"hex_encoded ({hex_type})",
+                            "original": match[:100] + "..." if len(match) > 100 else match,
+                            "decoded": decoded[:500] + "..." if len(decoded) > 500 else decoded,
+                            "confidence": 0.85
+                        }
+                except Exception:
+                    logger.debug("Hex decode failed for %s pattern", hex_type)
+                    continue
+
+        return None, {}
+
+    def _decode_rot13(self, content: str) -> Tuple[Optional[str], Dict]:
+        """Decode ROT13-encoded content."""
+        # Look for ROT13 indicators
+        rot13_indicators = [
+            re.compile(r'rot13', re.IGNORECASE),
+            re.compile(r'str_rot13', re.IGNORECASE),
+            re.compile(r'\.rot13\s*\(', re.IGNORECASE),
+        ]
+
+        if not any(p.search(content) for p in rot13_indicators):
+            return None, {}
+
+        # Find string arguments near ROT13 calls
+        str_patterns = [
+            re.compile(r'rot13\s*\(\s*["\']([A-Za-z][^"\']{5,})["\']', re.IGNORECASE),
+            re.compile(r'str_rot13\s*\(\s*["\']([A-Za-z][^"\']{5,})["\']', re.IGNORECASE),
+        ]
+
+        for pattern in str_patterns:
+            matches = pattern.findall(content)
+            for encoded in matches:
+                decoded = codecs.decode(encoded, 'rot_13')
+                new_content = content.replace(encoded, decoded)
+                return new_content, {
+                    "type": "rot13",
+                    "original": encoded[:100] + "..." if len(encoded) > 100 else encoded,
+                    "decoded": decoded[:500] + "..." if len(decoded) > 500 else decoded,
+                    "confidence": 0.9
+                }
+
+        # Fallback: decode all quoted strings that look like ROT13'd code keywords
+        # (e.g., "cbjrefuryy" = ROT13 of "powershell")
+        known_rot13 = {'cbjrefuryy': 'powershell', 'vak': 'ink', 'rkrp': 'exec', 'flfgrz': 'system'}
+        lower_content = content.lower()
+        for rotted, original in known_rot13.items():
+            if rotted in lower_content:
+                decoded_content = codecs.decode(content, 'rot_13')
+                return decoded_content, {
+                    "type": "rot13",
+                    "original": content[:100] + "...",
+                    "decoded": decoded_content[:500] + "...",
+                    "confidence": 0.8
+                }
+
+        return None, {}
+
     def _decode_xor(self, content: str) -> Tuple[Optional[str], Dict]:
         """Detect and attempt to decode XOR encoding."""
         # Look for XOR patterns
@@ -435,8 +528,12 @@ class ScriptDecoder:
         if re.search(r'-bxor|\^.*\d+|xor', content, re.IGNORECASE):
             detected.append("xor")
 
+        # Hex encoding
+        if re.search(r'(?:0x[0-9a-fA-F]{2}[,\s]*){5,}|(?:\\x[0-9a-fA-F]{2}){5,}', content):
+            detected.append("hex_encoded")
+
         # ROT13
-        if re.search(r'rot13', content, re.IGNORECASE):
+        if re.search(r'rot13|str_rot13', content, re.IGNORECASE):
             detected.append("rot13")
 
         return detected

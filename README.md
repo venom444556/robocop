@@ -17,7 +17,7 @@ AI-powered malware analysis platform with multi-agent reasoning, threat intellig
 
 ## What Is RoboCop?
 
-RoboCop is a static malware analysis platform that combines **6 Claude AI agents**, **13 threat intelligence sources**, and **automated n8n workflows** to analyze suspicious files and URLs, extract indicators of compromise, and generate professional investigation reports.
+RoboCop is a static malware analysis platform that combines **6 Claude AI agents**, **14 threat intelligence sources**, and **automated n8n workflows** to analyze suspicious files and URLs, extract indicators of compromise, and generate professional investigation reports.
 
 Submit a file or URL. RoboCop's agents analyze the content, enrich IOCs against threat intel feeds, map behaviors to MITRE ATT&CK, generate investigation plans, and produce a detailed report -- all automatically.
 
@@ -29,7 +29,7 @@ Submit a file or URL. RoboCop's agents analyze the content, enrich IOCs against 
 - Threat severity assessment with confidence scoring
 - DFIR investigation plans with prioritized containment/eradication steps
 
-**Threat Intelligence Enrichment (13 Sources — All Free Tier)**
+**Threat Intelligence Enrichment (14 Sources — All Free Tier)**
 - VirusTotal (file/URL reputation and detection counts)
 - Shodan (IP intelligence, open ports, services)
 - URLhaus (malware URL database by abuse.ch)
@@ -43,6 +43,7 @@ Submit a file or URL. RoboCop's agents analyze the content, enrich IOCs against 
 - urlscan.io (URL visual analysis, DOM inspection, tech stack)
 - AlienVault OTX (pulse-based community threat intelligence)
 - MalwareBazaar (malware sample intelligence by abuse.ch)
+- WHOIS (domain registration and IP network ownership lookups — no API key needed)
 
 **SOC Analyst Dashboard**
 - Real-time submission metrics and completion rates
