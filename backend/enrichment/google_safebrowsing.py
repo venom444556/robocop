@@ -43,7 +43,7 @@ class GoogleSafeBrowsingClient:
         # Build request body
         body = {
             "client": {
-                "clientId": "malware-analysis-platform",
+                "clientId": "robocop",
                 "clientVersion": "1.0.0"
             },
             "threatInfo": {

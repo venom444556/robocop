@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: malware-analysis-postgres
+    container_name: robocop-postgres
     environment:
       - POSTGRES_DB=malware_analysis
       - POSTGRES_USER=malware
@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - malware-analysis-net
+      - robocop-net
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U malware -d malware_analysis"]
@@ -25,7 +25,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: malware-analysis-backend
+    container_name: robocop-backend
     ports:
       - "8000:8000"
     environment:
@@ -59,20 +59,20 @@ services:
       n8n:
         condition: service_started
     networks:
-      - malware-analysis-net
+      - robocop-net
     restart: unless-stopped
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    container_name: malware-analysis-frontend
+    container_name: robocop-frontend
     ports:
       - "3000:80"
     depends_on:
       - backend
     networks:
-      - malware-analysis-net
+      - robocop-net
     restart: unless-stopped
 
   # n8n Community Edition (free, Sustainable Use License)
@@ -81,7 +81,7 @@ services:
   # NOTE: n8nio/n8n = community edition; n8nio/n8n-enterprise = paid enterprise
   n8n:
     image: n8nio/n8n:1.76.1
-    container_name: malware-analysis-n8n
+    container_name: robocop-n8n
     ports:
       - "5678:5678"
     environment:
@@ -98,7 +98,7 @@ services:
       - n8n_data:/home/node/.n8n
       - ./n8n/workflows:/home/node/workflows
     networks:
-      - malware-analysis-net
+      - robocop-net
     restart: unless-stopped
 
   # ── All-in-One Container (single-container deployment) ───────────────────
@@ -109,7 +109,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.allinone
-    container_name: malware-analysis-allinone
+    container_name: robocop-allinone
     ports:
       - "3000:80"
     environment:
@@ -146,5 +146,5 @@ volumes:
   allinone_n8n:
 
 networks:
-  malware-analysis-net:
+  robocop-net:
     driver: bridge

@@ -1,4 +1,4 @@
-"""Dashboard statistics endpoints for the malware analysis platform."""
+"""Dashboard statistics endpoints for RoboCop."""
 
 import logging
 import time

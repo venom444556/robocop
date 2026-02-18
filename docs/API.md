@@ -1,6 +1,6 @@
 # API Reference
 
-Complete API documentation for the Malware Analysis Platform.
+Complete API documentation for RoboCop (Reasoning-Orchestrated Bot for Cyber Operations Protection).
 
 ## Table of Contents
 
@@ -10,6 +10,11 @@ Complete API documentation for the Malware Analysis Platform.
 - [Analysis API](#analysis-api)
 - [Reports API](#reports-api)
 - [Webhooks API](#webhooks-api)
+- [Dashboard API](#dashboard-api)
+- [Search & Correlation API](#search--correlation-api)
+- [YARA Rules API](#yara-rules-api)
+- [Management API](#management-api)
+- [WebSocket API](#websocket-api)
 - [Error Handling](#error-handling)
 - [Rate Limiting](#rate-limiting)
 
@@ -384,6 +389,16 @@ curl "http://localhost:8000/api/analysis/1/status"
 
 ---
 
+### Validate MITRE Mappings
+
+```
+GET /api/analysis/{submission_id}/mitre-validation
+```
+
+Returns validated MITRE ATT&CK technique mappings with confidence levels.
+
+---
+
 ## Reports API
 
 ### Generate Report
@@ -675,6 +690,144 @@ X-API-Key: your-api-key
 
 ---
 
+## Dashboard API
+
+### Get Dashboard Stats
+
+Get SOC analyst dashboard metrics.
+
+```
+GET /api/dashboard/stats
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "total_submissions": 142,
+  "completion_rate": 94.2,
+  "submissions_today": 12,
+  "avg_analysis_time_seconds": 45,
+  "severity_distribution": {"critical": 8, "high": 23, "medium": 45, "low": 66},
+  "trend_7d": [{"date": "2024-12-13", "count": 18}, ...],
+  "mitre_heatmap": {"Execution": 34, "Defense Evasion": 28, ...},
+  "recent_submissions": [...]
+}
+```
+
+---
+
+## Search & Correlation API
+
+### Search IOCs
+
+Search IOCs across all submissions.
+
+```
+GET /api/search/iocs?q={query}&type={ioc_type}&page={page}
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | string | - | Search query (IOC value) |
+| `type` | string | - | Filter by IOC type (ip, domain, url, hash, email) |
+| `page` | integer | 1 | Page number (25 results per page) |
+
+### Correlate IOCs
+
+Find related submissions sharing common IOCs.
+
+```
+GET /api/search/correlate/{submission_id}
+```
+
+### Compare Submissions
+
+Side-by-side comparison of two submissions.
+
+```
+GET /api/search/compare/{id1}/{id2}
+```
+
+---
+
+## YARA Rules API
+
+### List YARA Rules
+
+```
+GET /api/yara-rules/
+```
+
+### Create YARA Rule
+
+```
+POST /api/yara-rules/
+```
+
+### Update YARA Rule
+
+```
+PUT /api/yara-rules/{rule_id}
+```
+
+### Delete YARA Rule
+
+```
+DELETE /api/yara-rules/{rule_id}
+```
+
+### Scan Submission Against Rules
+
+```
+POST /api/yara-rules/scan/{submission_id}
+```
+
+---
+
+## Management API
+
+### Health Check
+
+```
+GET /api/management/health
+```
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "uptime_seconds": 86400,
+  "version": "1.0.0"
+}
+```
+
+---
+
+## WebSocket API
+
+### Real-Time Updates
+
+```
+WS /ws
+```
+
+Connect for real-time submission status updates. The server sends a heartbeat every 30 seconds.
+
+**Message Format:**
+```json
+{
+  "type": "status_update",
+  "submission_id": 1,
+  "status": "analyzing",
+  "timestamp": "2024-12-19T14:32:07Z"
+}
+```
+
+---
+
 ## Error Handling
 
 All errors return JSON with a `detail` field:
@@ -740,7 +893,7 @@ Retry-After: 60
 ```python
 import httpx
 
-class MalwareAnalysisClient:
+class RoboCopClient:
     def __init__(self, base_url: str, api_key: str):
         self.base_url = base_url
         self.headers = {"X-API-Key": api_key}
@@ -771,7 +924,7 @@ class MalwareAnalysisClient:
             return response.json()
 
 # Usage
-client = MalwareAnalysisClient("http://localhost:8000", "your-api-key")
+client = RoboCopClient("http://localhost:8000", "your-api-key")
 result = await client.submit_file("suspicious.ps1")
 print(f"Submission ID: {result['id']}")
 ```
@@ -779,7 +932,7 @@ print(f"Submission ID: {result['id']}")
 ### JavaScript/TypeScript
 
 ```typescript
-class MalwareAnalysisClient {
+class RoboCopClient {
   constructor(
     private baseUrl: string,
     private apiKey: string

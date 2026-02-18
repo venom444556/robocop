@@ -1,4 +1,4 @@
-"""Main FastAPI application entry point for the malware analysis platform."""
+"""Main FastAPI application entry point for RoboCop."""
 
 import os
 import logging
@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
-    description="Static malware analysis platform with Claude AI reasoning",
+    description="AI-powered malware analysis with multi-agent reasoning",
     version="1.0.0",
     lifespan=lifespan
 )

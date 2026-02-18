@@ -139,7 +139,7 @@ function SettingsPage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">About</h2>
         <div className="space-y-2 text-sm text-gray-600">
           <p>
-            <strong>Malware Analysis Platform</strong> - A static analysis platform
+            <strong>RoboCop</strong> - An AI-powered malware analysis platform
             using Claude AI for reasoning, intelligence enrichment, and report generation.
           </p>
           <p>

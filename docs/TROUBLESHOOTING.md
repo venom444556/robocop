@@ -1,15 +1,18 @@
 # Troubleshooting Guide
 
-Common issues and solutions for the Malware Analysis Platform.
+Common issues and solutions for RoboCop.
 
 ## Table of Contents
 
 - [Installation Issues](#installation-issues)
+- [Docker All-in-One Issues](#docker-all-in-one-issues)
 - [Runtime Errors](#runtime-errors)
 - [Analysis Issues](#analysis-issues)
 - [API Issues](#api-issues)
 - [Performance Issues](#performance-issues)
 - [n8n Workflow Issues](#n8n-workflow-issues)
+- [WebSocket Issues](#websocket-issues)
+- [Frontend Issues](#frontend-issues)
 - [Debug Mode](#debug-mode)
 - [Getting Help](#getting-help)
 
@@ -117,6 +120,50 @@ Common issues and solutions for the Malware Analysis Platform.
    python -m venv venv
    source venv/bin/activate  # or venv\Scripts\activate on Windows
    pip install -r requirements.txt
+   ```
+
+---
+
+## Docker All-in-One Issues
+
+### Container exits immediately
+
+**Symptom:** `docker compose --profile allinone up allinone` exits or restarts in a loop.
+
+**Solutions:**
+
+1. **Check logs:**
+   ```bash
+   docker compose --profile allinone logs allinone
+   ```
+
+2. **Check supervisord logs inside the container:**
+   ```bash
+   docker compose --profile allinone exec allinone cat /var/log/supervisor/backend-error.log
+   docker compose --profile allinone exec allinone cat /var/log/supervisor/postgresql-error.log
+   ```
+
+3. **PostgreSQL data directory permissions:**
+   ```bash
+   # Reset if corrupted
+   docker compose --profile allinone down -v
+   docker compose --profile allinone up -d allinone
+   ```
+
+### n8n workflows not imported
+
+**Symptom:** Workflows don't appear in n8n after first start.
+
+**Solutions:**
+
+1. **Check import log:**
+   ```bash
+   docker compose --profile allinone exec allinone cat /var/log/supervisor/workflow-import.log
+   ```
+
+2. **Manually trigger import:**
+   ```bash
+   docker compose --profile allinone exec allinone bash -c "for wf in /opt/n8n/workflows/*.json; do su - n8n -c \"N8N_USER_FOLDER=/home/n8n/.n8n n8n import:workflow --input=\$wf\"; done"
    ```
 
 ---
@@ -493,8 +540,59 @@ Common issues and solutions for the Malware Analysis Platform.
 2. **Check network:**
    ```bash
    docker network ls
-   docker network inspect malware-analysis-platform_default
+   docker network inspect robocop_default
    ```
+
+---
+
+## WebSocket Issues
+
+### Real-time updates not working
+
+**Symptom:** Submission status doesn't update in real-time on the dashboard.
+
+**Solutions:**
+
+1. **Check WebSocket connection in browser:**
+   Open browser DevTools → Network → WS tab. Look for a connection to `/ws/`.
+
+2. **Check Nginx WebSocket proxy:**
+   Ensure your Nginx config includes WebSocket upgrade headers:
+   ```nginx
+   location /ws/ {
+       proxy_pass http://127.0.0.1:8000/ws/;
+       proxy_http_version 1.1;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection "upgrade";
+       proxy_read_timeout 86400s;
+   }
+   ```
+
+3. **Heartbeat timeout:**
+   The server sends a heartbeat every 30 seconds. If you see disconnections, check for proxies or firewalls that close idle connections.
+
+---
+
+## Frontend Issues
+
+### Error boundary triggered
+
+**Symptom:** A section of the page shows "Something went wrong" with an error ID.
+
+**Solutions:**
+
+1. **Note the error ID** — it can be correlated with backend logs for debugging.
+2. **Click "Try Again"** to reset that component.
+3. **Check browser console** for the full error stack trace.
+
+### Toast notifications not appearing
+
+**Symptom:** No success/error notifications after actions.
+
+**Solutions:**
+
+1. **Check ToastProvider** is wrapping the app in main.jsx.
+2. **Check browser console** for React errors.
 
 ---
 
@@ -575,7 +673,7 @@ cat .env | grep -v KEY | grep -v PASSWORD > config.txt
 
 ### Check GitHub Issues
 
-Search existing issues at: `https://github.com/your-org/malware-analysis-platform/issues`
+Search existing issues at: `https://github.com/venom444556/robocop/issues`
 
 ### Report a bug
 
@@ -599,3 +697,5 @@ Include:
 | CORS error | CORS_ORIGINS setting |
 | Slow performance | `docker stats` |
 | DB connection | DATABASE_URL format |
+| WebSocket disconnects | Nginx proxy config |
+| All-in-one not starting | supervisord logs |

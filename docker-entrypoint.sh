@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# ── Malware Analysis Platform — All-in-One Container Entrypoint ─────────────
+# ── RoboCop — All-in-One Container Entrypoint ─────────────
 # Initializes PostgreSQL, imports n8n workflows, and starts supervisord.
 
 PGDATA="/var/lib/postgresql/16/main"
@@ -10,7 +10,7 @@ PGUSER="malware"
 PGDB="malware_analysis"
 PGPASS="${POSTGRES_PASSWORD:-malware_dev_only}"
 
-echo "=== Malware Analysis Platform — Starting ==="
+echo "=== RoboCop — Starting ==="
 
 # ── 1. Initialize PostgreSQL if needed ───────────────────────────────────────
 if [ ! -f "$PGDATA/PG_VERSION" ]; then

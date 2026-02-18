@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get the Malware Analysis Platform running in 5 minutes.
+Get RoboCop running in 5 minutes.
 
 ## Prerequisites
 
@@ -11,8 +11,8 @@ Get the Malware Analysis Platform running in 5 minutes.
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd malware-analysis-platform
+git clone https://github.com/venom444556/robocop.git
+cd robocop
 
 # Copy environment file
 cp .env.example .env
@@ -29,16 +29,27 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 ## Step 2: Start the Platform
 
+**One-Click Deploy (Recommended):**
 ```bash
-docker-compose up -d
+docker compose --profile allinone up -d allinone
+```
+
+This starts PostgreSQL, FastAPI, n8n, and Nginx in a single container.
+
+**Or Multi-Service Deploy:**
+```bash
+docker compose up -d
 ```
 
 Wait about 30 seconds for all services to initialize.
 
 ## Step 3: Access the Platform
 
+> **First thing to check:** Open the SOC Dashboard at http://localhost:3000/dashboard to see the operational overview after startup.
+
 | Service | URL |
 |---------|-----|
+| SOC Dashboard | http://localhost:3000/dashboard |
 | Dashboard | http://localhost:3000 |
 | API Docs | http://localhost:8000/docs |
 | n8n Workflows | http://localhost:5678 |
@@ -79,10 +90,10 @@ curl http://localhost:8000/api/analysis/1/results
 
 ```
 1. File uploaded → validated and stored
-2. Static analysis → behaviors detected, IOCs extracted
-3. Enrichment → VirusTotal, Shodan lookups (if configured)
-4. AI Reasoning → Claude analyzes and maps to MITRE ATT&CK
-5. Report generated → JSON, HTML, or PDF
+2. Static analysis → scripts decoded, behaviors detected, IOCs extracted
+3. Enrichment → VirusTotal, Shodan, URLhaus, Safe Browsing, CheckPhish, IPQualityScore, NVD lookups
+4. AI Reasoning → 6 Claude agents analyze, map to MITRE ATT&CK, generate threat hunt findings
+5. Report generated → JSON, HTML, or PDF with TLP markings
 ```
 
 ## Next Steps

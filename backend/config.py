@@ -1,4 +1,4 @@
-"""Configuration management for the malware analysis platform."""
+"""Configuration management for RoboCop."""
 
 import logging
 from pydantic_settings import BaseSettings
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Application
-    app_name: str = "Malware Analysis Platform"
+    app_name: str = "RoboCop"
     debug: bool = False
     api_key: str = "change-this-in-production"
 
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
     aws_region: str = "us-east-1"
-    s3_bucket_name: str = "malware-analysis-artifacts"
+    s3_bucket_name: str = "robocop-artifacts"
 
     # Anthropic Claude API
     anthropic_api_key: Optional[str] = None

@@ -1,4 +1,4 @@
-"""Security middleware for the malware analysis platform.
+"""Security middleware for RoboCop.
 
 Provides rate limiting, API key authentication, and structured request logging.
 """

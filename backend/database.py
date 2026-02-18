@@ -1,4 +1,4 @@
-"""Database setup and models for the malware analysis platform."""
+"""Database setup and models for RoboCop."""
 
 from datetime import datetime
 from typing import Optional

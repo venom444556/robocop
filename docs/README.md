@@ -1,6 +1,6 @@
-# Malware Analysis Platform Documentation
+# RoboCop Documentation
 
-Welcome to the documentation for the Malware Analysis Platform.
+Welcome to the documentation for RoboCop.
 
 ## Getting Started
 
@@ -24,6 +24,7 @@ Welcome to the documentation for the Malware Analysis Platform.
 | [Architecture](ARCHITECTURE.md) | System design and data flow |
 | [Deployment](DEPLOYMENT.md) | Production deployment guide |
 | [Troubleshooting](TROUBLESHOOTING.md) | Common issues and solutions |
+| [Sample Report](sample-report-mockup.html) | Example analysis report output |
 
 ## Quick Links
 
@@ -61,7 +62,7 @@ curl -X POST http://localhost:8000/api/reports/{id}/generate \
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-org/malware-analysis-platform/issues)
+- **Issues**: [GitHub Issues](https://github.com/venom444556/robocop/issues)
 - **Troubleshooting**: [Troubleshooting Guide](TROUBLESHOOTING.md)
 
 ## Contributing

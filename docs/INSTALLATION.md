@@ -1,11 +1,12 @@
 # Installation Guide
 
-This guide covers how to install and set up the Malware Analysis Platform for development and production use.
+This guide covers how to install and set up RoboCop (Reasoning-Orchestrated Bot for Cyber Operations Protection) for development and production use.
 
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
-- [Quick Start with Docker](#quick-start-with-docker)
+- [Docker All-in-One (Recommended)](#docker-all-in-one-recommended)
+- [Quick Start with Docker Compose](#quick-start-with-docker-compose)
 - [Manual Installation](#manual-installation)
 - [Verifying Installation](#verifying-installation)
 
@@ -44,16 +45,45 @@ This guide covers how to install and set up the Malware Analysis Platform for de
 | Google Safe Browsing | Phishing detection | [console.cloud.google.com](https://console.cloud.google.com/) |
 | IPQualityScore | Malicious URL detection | [ipqualityscore.com](https://www.ipqualityscore.com/) |
 | CheckPhish | URL categorization | [checkphish.ai](https://checkphish.ai/) |
+| URLhaus | Malware URL database | [urlhaus-api.abuse.ch](https://urlhaus-api.abuse.ch/) |
+| NVD | CVE vulnerability data | [nvd.nist.gov](https://nvd.nist.gov/developers/request-an-api-key) |
 
 ---
 
-## Quick Start with Docker
+## Docker All-in-One (Recommended)
+
+The fastest way to get RoboCop running — a single container with all services.
+
+### Step 1: Clone and Configure
+
+```bash
+git clone https://github.com/venom444556/robocop.git
+cd robocop
+cp .env.example .env
+# Edit .env — set ANTHROPIC_API_KEY and a secure API_KEY (32+ chars)
+```
+
+### Step 2: Start
+
+```bash
+docker compose --profile allinone up -d allinone
+```
+
+### Step 3: Access
+
+Open **http://localhost:3000** — you're done!
+
+This runs PostgreSQL 16, FastAPI, n8n Community Edition, and Nginx in a single container via supervisord.
+
+---
+
+## Quick Start with Docker Compose
 
 ### Step 1: Clone the Repository
 
 ```bash
-git clone <repository-url>
-cd malware-analysis-platform
+git clone https://github.com/venom444556/robocop.git
+cd robocop
 ```
 
 ### Step 2: Configure Environment
@@ -167,7 +197,7 @@ docker run -d \
 
 ```bash
 # Health check endpoint
-curl http://localhost:8000/health
+curl http://localhost:8000/api/management/health
 
 # Expected response:
 # {"status": "healthy"}
@@ -189,6 +219,12 @@ curl -X POST "http://localhost:8000/api/submissions/file" \
 # {"id": 1, "type": "file", "status": "pending", ...}
 ```
 
+### Run Frontend Tests
+
+```bash
+cd frontend && npx vitest run
+```
+
 ### Check Frontend
 
 Open http://localhost:3000 in your browser. You should see the dashboard.
@@ -198,7 +234,7 @@ Open http://localhost:3000 in your browser. You should see the dashboard.
 ## Directory Structure After Installation
 
 ```
-malware-analysis-platform/
+robocop/
 ├── backend/
 │   ├── venv/              # Python virtual environment
 │   ├── uploads/           # Uploaded files (created automatically)

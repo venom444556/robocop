@@ -1,21 +1,25 @@
 # User Guide
 
-This guide covers how to use the Malware Analysis Platform for analyzing suspicious files, URLs, and sandbox reports.
+This guide covers how to use the RoboCop for analyzing suspicious files, URLs, and sandbox reports.
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [SOC Analyst Dashboard](#soc-analyst-dashboard)
 - [Submitting Samples](#submitting-samples)
 - [Understanding Analysis Results](#understanding-analysis-results)
 - [Working with Reports](#working-with-reports)
 - [IOC Management](#ioc-management)
+- [IOC Search & Correlation](#ioc-search--correlation)
+- [YARA Rule Management](#yara-rule-management)
+- [Real-Time Updates](#real-time-updates)
 - [Best Practices](#best-practices)
 
 ---
 
 ## Overview
 
-The Malware Analysis Platform provides three main submission types:
+The RoboCop provides three main submission types:
 
 | Type | Use Case | What Gets Analyzed |
 |------|----------|-------------------|
@@ -26,8 +30,20 @@ The Malware Analysis Platform provides three main submission types:
 ### Analysis Pipeline
 
 ```
-Submit → Static Analysis → IOC Extraction → Enrichment → Claude AI Reasoning → Report
+Submit → Static Analysis → IOC Extraction → Enrichment → 6 Claude AI Agents → Report
 ```
+
+---
+
+## SOC Analyst Dashboard
+
+The Dashboard (http://localhost:3000/dashboard) provides real-time operational metrics:
+
+- **Submission Metrics**: Total submissions, completion rate, today's count
+- **7-Day Trend Chart**: Submission volume over the past week
+- **MITRE ATT&CK Heatmap**: Technique frequency by tactic across all analyses
+- **Severity Distribution**: Breakdown of critical/high/medium/low findings
+- **Recent Submissions**: Quick access to latest analyses with status indicators
 
 ---
 
@@ -337,6 +353,44 @@ For safe sharing, IOCs are automatically defanged in exports:
 | `malware.com` | `malware[.]com` |
 | `http://evil.com` | `hxxp://evil[.]com` |
 | `attacker@evil.com` | `attacker[@]evil[.]com` |
+
+---
+
+## IOC Search & Correlation
+
+The Search page (http://localhost:3000/search) enables cross-submission IOC analysis:
+
+### Searching IOCs
+1. Navigate to the Search page
+2. Enter an IOC value (IP, domain, URL, hash, or email)
+3. Optionally filter by IOC type
+4. Results show all matching IOCs across submissions (25 per page)
+
+### Correlating Submissions
+Click "Correlate" on any submission to find other submissions sharing the same IOCs. This helps identify related campaigns or recurring threat actors.
+
+### Comparing Submissions
+Select two submissions for a side-by-side comparison of IOCs, behaviors, and MITRE techniques.
+
+---
+
+## YARA Rule Management
+
+The YARA Rules page (http://localhost:3000/yara-rules) lets you create and manage detection rules:
+
+### Creating Rules
+1. Click "Create Rule"
+2. Enter rule name, category (Malware, Ransomware, Exploit, APT, Custom), and YARA source
+3. Rules can be enabled/disabled with a toggle
+
+### Scanning
+Scan any submission against your YARA rules to check for matches.
+
+---
+
+## Real-Time Updates
+
+RoboCop uses WebSocket connections to provide live status updates. When you submit a sample, the UI automatically updates as the analysis progresses through each stage (analyzing → enriching → reasoning → complete). A 30-second heartbeat keeps the connection alive.
 
 ---
 

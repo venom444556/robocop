@@ -69,7 +69,7 @@ function App() {
             <div className="flex items-center space-x-3">
               <Shield className="h-8 w-8 text-primary-600" />
               <span className="text-xl font-bold text-gray-900 dark:text-white">
-                MAP
+                RoboCop
               </span>
             </div>
 

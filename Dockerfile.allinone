@@ -1,4 +1,4 @@
-# All-in-One Dockerfile — Single container running the full platform
+# RoboCop All-in-One Dockerfile — Single container running the full platform
 # Uses n8n Community Edition (free, Sustainable Use License)
 # Services managed by supervisord: PostgreSQL 16, FastAPI, n8n 1.76.1, Nginx
 #

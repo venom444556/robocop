@@ -1,4 +1,4 @@
-"""Shared test fixtures for the malware analysis platform test suite."""
+"""Shared test fixtures for the RoboCop test suite."""
 
 import sys
 import os

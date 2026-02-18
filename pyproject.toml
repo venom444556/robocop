@@ -1,7 +1,7 @@
 [project]
-name = "malware-analysis-platform"
+name = "robocop"
 version = "1.0.0"
-description = "Static malware analysis platform with Claude AI reasoning"
+description = "RoboCop — Reasoning-Orchestrated Bot for Cyber Operations Protection"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]

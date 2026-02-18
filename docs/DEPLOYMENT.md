@@ -1,10 +1,11 @@
 # Deployment Guide
 
-Production deployment guide for the Malware Analysis Platform.
+Production deployment guide for RoboCop (Reasoning-Orchestrated Bot for Cyber Operations Protection).
 
 ## Table of Contents
 
 - [Deployment Options](#deployment-options)
+- [Docker All-in-One Deployment](#docker-all-in-one-deployment-recommended)
 - [Docker Compose Deployment](#docker-compose-deployment)
 - [AWS Deployment](#aws-deployment)
 - [Kubernetes Deployment](#kubernetes-deployment)
@@ -19,9 +20,26 @@ Production deployment guide for the Malware Analysis Platform.
 
 | Option | Best For | Complexity |
 |--------|----------|------------|
+| Docker All-in-One | Quick start, small teams | Very Low |
 | Docker Compose | Small teams, single server | Low |
 | AWS EC2 + RDS | Medium scale, managed services | Medium |
 | Kubernetes | Enterprise, high availability | High |
+
+---
+
+## Docker All-in-One Deployment (Recommended)
+
+The simplest deployment — everything in one container.
+
+```bash
+git clone https://github.com/venom444556/robocop.git
+cd robocop
+cp .env.example .env
+# Edit .env — set ANTHROPIC_API_KEY and API_KEY
+docker compose --profile allinone up -d allinone
+```
+
+Access at http://localhost:3000. This runs PostgreSQL 16, FastAPI, n8n, and Nginx via supervisord.
 
 ---
 
@@ -169,6 +187,15 @@ server {
         proxy_read_timeout 300s;
     }
 
+    # WebSocket
+    location /ws/ {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400s;
+    }
+
     # n8n
     location /n8n/ {
         proxy_pass http://n8n/;
@@ -185,8 +212,8 @@ server {
 
 ```bash
 # 1. Clone repository
-git clone <repo-url>
-cd malware-analysis-platform
+git clone https://github.com/venom444556/robocop.git
+cd robocop
 
 # 2. Create production environment file
 cp .env.example .env.production
@@ -261,7 +288,7 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.0"
 
-  name = "malware-analysis-vpc"
+  name = "robocop-vpc"
   cidr = "10.0.0.0/16"
 
   azs             = ["us-east-1a", "us-east-1b"]
@@ -274,7 +301,7 @@ module "vpc" {
 
 # RDS PostgreSQL
 resource "aws_db_instance" "malware_db" {
-  identifier           = "malware-analysis-db"
+  identifier           = "robocop-db"
   engine               = "postgres"
   engine_version       = "15"
   instance_class       = "db.t3.medium"
@@ -295,7 +322,7 @@ resource "aws_db_instance" "malware_db" {
 
 # S3 Bucket
 resource "aws_s3_bucket" "artifacts" {
-  bucket = "malware-analysis-artifacts-${random_id.bucket.hex}"
+  bucket = "robocop-artifacts-${random_id.bucket.hex}"
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
@@ -341,13 +368,13 @@ resource "aws_instance" "app" {
   }
 
   tags = {
-    Name = "malware-analysis-app"
+    Name = "robocop-app"
   }
 }
 
 # ALB
 resource "aws_lb" "main" {
-  name               = "malware-analysis-alb"
+  name               = "robocop-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
@@ -385,8 +412,8 @@ curl -L "https://github.com/docker/compose/releases/latest/download/docker-compo
 chmod +x /usr/local/bin/docker-compose
 
 # Clone application
-git clone <repo-url> /opt/malware-analysis
-cd /opt/malware-analysis
+git clone https://github.com/venom444556/robocop.git /opt/robocop
+cd /opt/robocop
 
 # Configure environment
 cat > .env <<EOF
@@ -407,7 +434,7 @@ docker-compose -f docker-compose.prod.yml up -d
 ### Helm Chart Structure
 
 ```
-helm/malware-analysis/
+helm/robocop/
 ├── Chart.yaml
 ├── values.yaml
 ├── templates/
@@ -488,7 +515,7 @@ spec:
 # values.yaml
 backend:
   replicas: 3
-  image: your-registry/malware-analysis-backend:latest
+  image: your-registry/robocop-backend:latest
   resources:
     requests:
       memory: "512Mi"
@@ -499,7 +526,7 @@ backend:
 
 frontend:
   replicas: 2
-  image: your-registry/malware-analysis-frontend:latest
+  image: your-registry/robocop-frontend:latest
 
 n8n:
   replicas: 1
@@ -511,14 +538,14 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
-    - host: malware.example.com
+    - host: robocop.example.com
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: malware-tls
+    - secretName: robocop-tls
       hosts:
-        - malware.example.com
+        - robocop.example.com
 
 postgresql:
   enabled: true
@@ -578,9 +605,9 @@ async def metrics():
       "type": "metric",
       "properties": {
         "metrics": [
-          ["MalwareAnalysis", "SubmissionsPerMinute"],
-          ["MalwareAnalysis", "AnalysisErrors"],
-          ["MalwareAnalysis", "APILatency"]
+          ["RoboCop", "SubmissionsPerMinute"],
+          ["RoboCop", "AnalysisErrors"],
+          ["RoboCop", "APILatency"]
         ],
         "title": "Platform Metrics"
       }

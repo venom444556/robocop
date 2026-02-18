@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This guide covers all configuration options for the Malware Analysis Platform.
+This guide covers all configuration options for RoboCop (Reasoning-Orchestrated Bot for Cyber Operations Protection).
 
 ## Table of Contents
 
@@ -51,6 +51,7 @@ All configuration is done via environment variables. Create a `.env` file in the
 | `IPQUALITYSCORE_API_KEY` | - | IPQualityScore API key |
 | `CHECKPHISH_API_KEY` | - | CheckPhish API key |
 | `URLHAUS_AUTH_KEY` | - | URLhaus authentication key |
+| `NVD_API_KEY` | - | NVD/CVE vulnerability lookups (without key: 5 req/30s, with: 50 req/30s) |
 
 ### Database Settings
 
@@ -67,7 +68,7 @@ All configuration is done via environment variables. Create a `.env` file in the
 | `AWS_ACCESS_KEY_ID` | - | AWS access key (for S3 storage) |
 | `AWS_SECRET_ACCESS_KEY` | - | AWS secret key |
 | `AWS_REGION` | `us-east-1` | AWS region |
-| `S3_BUCKET_NAME` | `malware-analysis-artifacts` | S3 bucket name |
+| `S3_BUCKET_NAME` | `robocop-artifacts` | S3 bucket name |
 
 ### n8n Settings
 
@@ -83,6 +84,14 @@ All configuration is done via environment variables. Create a `.env` file in the
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `REPORT_RETENTION_DAYS` | `30` | Days to retain reports |
+| `DEFAULT_TLP_MARKING` | `TLP:AMBER` | Default TLP marking for reports (options: WHITE, GREEN, AMBER, RED) |
+
+### MITRE ATT&CK Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MITRE_ATTACK_JSON_URL` | `https://raw.githubusercontent.com/.../enterprise-attack.json` | MITRE ATT&CK data source |
+| `MITRE_ATTACK_CACHE_DIR` | `./data/mitre_cache` | Cache directory for ATT&CK data |
 
 ---
 
@@ -209,7 +218,7 @@ For production, use S3 for artifact storage:
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
 AWS_REGION=us-east-1
-S3_BUCKET_NAME=malware-analysis-artifacts
+S3_BUCKET_NAME=robocop-artifacts
 ```
 
 **S3 Bucket Policy (recommended):**
@@ -227,8 +236,8 @@ S3_BUCKET_NAME=malware-analysis-artifacts
         "s3:ListBucket"
       ],
       "Resource": [
-        "arn:aws:s3:::malware-analysis-artifacts",
-        "arn:aws:s3:::malware-analysis-artifacts/*"
+        "arn:aws:s3:::robocop-artifacts",
+        "arn:aws:s3:::robocop-artifacts/*"
       ]
     }
   ]
@@ -269,6 +278,8 @@ openssl rand -hex 32
 ```
 
 **Never use default keys in production!**
+
+> **Note:** In production (`DEBUG=false`), the platform requires API keys of at least 32 characters and refuses to start with insecure default values.
 
 ### CORS Configuration
 
@@ -313,7 +324,7 @@ In n8n, create credentials for the backend API:
 
 1. Go to Settings → Credentials
 2. Add "Header Auth" credential:
-   - Name: `Malware Analysis API`
+   - Name: `RoboCop API`
    - Header Name: `X-API-Key`
    - Header Value: Your `API_KEY` from `.env`
 
@@ -327,7 +338,7 @@ In n8n, create credentials for the backend API:
 # ===========================================
 API_KEY=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
 DEBUG=false
-CORS_ORIGINS=https://malware.example.com
+CORS_ORIGINS=https://robocop.example.com
 
 # ===========================================
 # Claude AI
@@ -355,7 +366,7 @@ MAX_FILE_SIZE=52428800
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
 AWS_REGION=us-east-1
-S3_BUCKET_NAME=malware-analysis-prod
+S3_BUCKET_NAME=robocop-prod
 
 # ===========================================
 # n8n
