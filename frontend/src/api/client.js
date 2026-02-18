@@ -121,4 +121,103 @@ export const reportsApi = {
   },
 }
 
+// Management API
+export const managementApi = {
+  deleteSubmission: async (submissionId) => {
+    const response = await client.delete(`/management/submissions/${submissionId}`)
+    return response.data
+  },
+
+  reanalyze: async (submissionId) => {
+    const response = await client.post(`/management/submissions/${submissionId}/reanalyze`)
+    return response.data
+  },
+
+  healthDetailed: async () => {
+    const response = await client.get('/management/health/detailed')
+    return response.data
+  },
+
+  cleanup: async (olderThanDays = 90) => {
+    const response = await client.post('/management/cleanup', { older_than_days: olderThanDays })
+    return response.data
+  },
+}
+
+// Dashboard API
+export const dashboardApi = {
+  getStats: async () => {
+    const response = await client.get('/dashboard/stats')
+    return response.data
+  },
+}
+
+// Search API
+export const searchApi = {
+  searchIOCs: async (params) => {
+    const response = await client.get('/search/iocs', { params })
+    return response.data
+  },
+
+  correlateIOC: async (iocValue) => {
+    const response = await client.get(`/search/iocs/${encodeURIComponent(iocValue)}/correlate`)
+    return response.data
+  },
+
+  compareSubmissions: async (id1, id2) => {
+    const response = await client.get('/search/submissions/compare', { params: { id1, id2 } })
+    return response.data
+  },
+
+  globalSearch: async (query) => {
+    const response = await client.get('/search/global-search', { params: { q: query } })
+    return response.data
+  },
+}
+
+// YARA Rules API
+export const yaraRulesApi = {
+  list: async (params = {}) => {
+    const response = await client.get('/yara-rules/', { params })
+    return response.data
+  },
+
+  get: async (ruleId) => {
+    const response = await client.get(`/yara-rules/${ruleId}`)
+    return response.data
+  },
+
+  create: async (data) => {
+    const response = await client.post('/yara-rules/', data)
+    return response.data
+  },
+
+  update: async (ruleId, data) => {
+    const response = await client.put(`/yara-rules/${ruleId}`, data)
+    return response.data
+  },
+
+  delete: async (ruleId) => {
+    const response = await client.delete(`/yara-rules/${ruleId}`)
+    return response.data
+  },
+
+  import: async (content) => {
+    const response = await client.post('/yara-rules/import', { content })
+    return response.data
+  },
+
+  export: async () => {
+    const response = await client.get('/yara-rules/export', { responseType: 'blob' })
+    return response.data
+  },
+}
+
+// WebSocket helper
+export const createAnalysisFeedSocket = () => {
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsHost = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}`
+  return new WebSocket(`${wsHost}/ws/analysis-feed`)
+}
+
 export default client

@@ -8,7 +8,9 @@ from fastapi.responses import JSONResponse
 
 from config import get_settings
 from database import init_db
-from api import submissions, analysis, reports, webhooks
+from api import submissions, analysis, reports, webhooks, dashboard, search, management, yara_rules
+from api.websocket import router as ws_router
+from middleware import RateLimitMiddleware, RequestLoggingMiddleware
 
 settings = get_settings()
 
@@ -41,6 +43,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security and operational middleware
+app.add_middleware(RateLimitMiddleware, requests_per_minute=120, burst=20)
+app.add_middleware(RequestLoggingMiddleware)
+
 
 # Exception handler
 @app.exception_handler(Exception)
@@ -61,6 +67,11 @@ app.include_router(submissions.router, prefix="/api/submissions", tags=["Submiss
 app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(search.router, prefix="/api/search", tags=["Search"])
+app.include_router(management.router, prefix="/api/management", tags=["Management"])
+app.include_router(yara_rules.router, prefix="/api/yara-rules", tags=["YARA Rules"])
+app.include_router(ws_router, tags=["WebSocket"])
 
 
 @app.get("/")

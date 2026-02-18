@@ -199,6 +199,23 @@ class ThreatIntelRecord(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class YaraRule(Base):
+    """YARA rules library for threat detection."""
+    __tablename__ = "yara_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, unique=True)
+    description = Column(Text, nullable=True)
+    category = Column(String(100), nullable=True)  # e.g., "malware", "ransomware", "exploit"
+    rule_content = Column(Text, nullable=False)
+    author = Column(String(100), nullable=True)
+    source = Column(String(200), nullable=True)  # e.g., "community", "custom", "import"
+    tags = Column(JSON, nullable=True)  # ["apt", "ransomware", ...]
+    enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 # Database engine and session setup
 settings = get_settings()
 engine = create_async_engine(settings.database_url, echo=settings.debug)
