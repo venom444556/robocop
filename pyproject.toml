@@ -1,7 +1,7 @@
 [project]
 name = "robocop"
 version = "1.0.0"
-description = "RoboCop — Reasoning-Orchestration Bot for Cyber Operations Protection"
+description = "RoboCop — Reasoning-Orchestration Bot for Cyber Operations"
 authors = [{name = "Sheldon Spence"}]
 requires-python = ">=3.11"
 

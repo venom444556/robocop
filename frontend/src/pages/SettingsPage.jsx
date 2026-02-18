@@ -263,7 +263,7 @@ function SettingsPage() {
         </h2>
         <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
           <p>
-            <strong className="text-gray-900 dark:text-gray-200">RoboCop</strong> — Reasoning-Orchestration Bot for Cyber Operations Protection.
+            <strong className="text-gray-900 dark:text-gray-200">RoboCop</strong> — Reasoning-Orchestration Bot for Cyber Operations.
             An AI-powered malware analysis platform combining 6 Claude AI agents, 14 threat intelligence sources,
             and automated n8n workflows.
           </p>

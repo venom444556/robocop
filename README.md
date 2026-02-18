@@ -4,7 +4,7 @@
 
 # RoboCop
 
-**Reasoning-Orchestration Bot for Cyber Operations Protection**
+**Reasoning-Orchestration Bot for Cyber Operations**
 
 AI-powered malware analysis platform with multi-agent reasoning, threat intelligence enrichment, and SOC analyst workflows.
 

@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This guide covers all configuration options for RoboCop (Reasoning-Orchestration Bot for Cyber Operations Protection).
+This guide covers all configuration options for RoboCop (Reasoning-Orchestration Bot for Cyber Operations).
 
 ## Table of Contents
 
