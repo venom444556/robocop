@@ -52,6 +52,33 @@ All configuration is done via environment variables. Create a `.env` file in the
 | `CHECKPHISH_API_KEY` | - | CheckPhish API key |
 | `URLHAUS_AUTH_KEY` | - | URLhaus authentication key |
 | `NVD_API_KEY` | - | NVD/CVE vulnerability lookups (without key: 5 req/30s, with: 50 req/30s) |
+| `GREYNOISE_API_KEY` | - | GreyNoise Community API key (free: unlimited with key) |
+| `ABUSEIPDB_API_KEY` | - | AbuseIPDB API key (free: 1,000 checks/day) |
+| `URLSCAN_API_KEY` | - | urlscan.io API key (free: 50 private + 5,000 public scans/day) |
+| `ALIENVAULT_OTX_API_KEY` | - | AlienVault OTX API key (free: unlimited) |
+| `MALWAREBAZAAR_API_KEY` | - | MalwareBazaar/abuse.ch auth key (free: fair use) |
+
+### Enrichment Source Free Tier Summary
+
+All 13 enrichment sources offer free tiers. No paid subscriptions required.
+
+| Source | Free Tier | Limits | API Key Required | IOC Types |
+|--------|-----------|--------|-----------------|-----------|
+| VirusTotal | Yes | 4 req/min, 500/day, 15.5K/month | Yes | Hashes, IPs, domains, URLs |
+| Shodan | Partial | Free account has no API credits; $49 one-time membership needed for API | Yes | IPs, domains |
+| URLhaus | Yes | Unlimited (auth key optional for higher limits) | No | Hashes, URLs, domains |
+| Google Safe Browsing | Yes | 10,000 req/day | Yes | URLs |
+| CheckPhish | Yes | 25 scans/day | Yes | URLs |
+| IPQualityScore | Yes | 5,000 req/month | Yes | IPs, URLs |
+| NVD | Yes | 5 req/30s (50 with key) | No (optional) | CVE keywords |
+| URL Unshortening | Yes | No hard limit (unshorten.me + manual fallback) | No | URLs |
+| GreyNoise | Yes | Unlimited with free API key | Yes | IPs |
+| AbuseIPDB | Yes | 1,000 checks/day | Yes | IPs |
+| urlscan.io | Yes | 50 private + 5,000 public scans/day, 1,000 searches | Yes | URLs, domains, IPs |
+| AlienVault OTX | Yes | Unlimited | Yes | All IOC types |
+| MalwareBazaar | Yes | 2,000 downloads/day (fair use) | No (optional) | Hashes |
+
+> **Note:** Shodan's free tier does not include API access. A $49 one-time developer membership is required. RoboCop degrades gracefully if the key is missing — Shodan lookups simply return an error and other sources continue.
 
 ### Database Settings
 
@@ -158,6 +185,66 @@ All configuration is done via environment variables. Create a `.env` file in the
    ```
 
 **Rate Limits (Free):** 5,000 lookups per month
+
+### GreyNoise (Recommended for IP Triage)
+
+1. Go to [viz.greynoise.io/signup](https://viz.greynoise.io/signup)
+2. Create a free account
+3. Get your API key from Account Settings
+4. Add to `.env`:
+   ```
+   GREYNOISE_API_KEY=your-api-key
+   ```
+
+**Rate Limits (Free):** Unlimited Community API lookups with key
+
+### AbuseIPDB
+
+1. Go to [abuseipdb.com/register](https://www.abuseipdb.com/register)
+2. Create a free account
+3. Get your API key from the API tab
+4. Add to `.env`:
+   ```
+   ABUSEIPDB_API_KEY=your-api-key
+   ```
+
+**Rate Limits (Free):** 1,000 checks/day
+
+### urlscan.io
+
+1. Go to [urlscan.io/user/signup](https://urlscan.io/user/signup)
+2. Create a free account
+3. Get your API key from Settings & API
+4. Add to `.env`:
+   ```
+   URLSCAN_API_KEY=your-api-key
+   ```
+
+**Rate Limits (Free):** 50 private + 5,000 public scans/day, 1,000 searches/day
+
+### AlienVault OTX (Recommended)
+
+1. Go to [otx.alienvault.com](https://otx.alienvault.com/)
+2. Create a free account
+3. Get your API key from Settings
+4. Add to `.env`:
+   ```
+   ALIENVAULT_OTX_API_KEY=your-api-key
+   ```
+
+**Rate Limits (Free):** Unlimited
+
+### MalwareBazaar
+
+1. Go to [auth.abuse.ch](https://auth.abuse.ch/)
+2. Create a free account (same as URLhaus)
+3. Get your auth key
+4. Add to `.env`:
+   ```
+   MALWAREBAZAAR_API_KEY=your-auth-key
+   ```
+
+**Rate Limits (Free):** 2,000 file downloads/day (fair use for lookups)
 
 ---
 

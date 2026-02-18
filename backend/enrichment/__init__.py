@@ -8,6 +8,11 @@ from .unshorten import UnshortenClient
 from .checkphish import CheckPhishClient
 from .ipqualityscore import IPQualityScoreClient
 from .nvd import NVDClient
+from .greynoise import GreyNoiseClient
+from .abuseipdb import AbuseIPDBClient
+from .urlscan import URLScanClient
+from .alienvault_otx import AlienVaultOTXClient
+from .malwarebazaar import MalwareBazaarClient
 
 __all__ = [
     "VirusTotalClient",
@@ -17,5 +22,10 @@ __all__ = [
     "UnshortenClient",
     "CheckPhishClient",
     "IPQualityScoreClient",
-    "NVDClient"
+    "NVDClient",
+    "GreyNoiseClient",
+    "AbuseIPDBClient",
+    "URLScanClient",
+    "AlienVaultOTXClient",
+    "MalwareBazaarClient",
 ]

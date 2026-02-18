@@ -13,7 +13,7 @@ AI-powered malware analysis platform with multi-agent reasoning, threat intellig
 
 ## What Is RoboCop?
 
-RoboCop is a static malware analysis platform that combines **6 Claude AI agents**, **8 threat intelligence sources**, and **automated n8n workflows** to analyze suspicious files and URLs, extract indicators of compromise, and generate professional investigation reports.
+RoboCop is a static malware analysis platform that combines **6 Claude AI agents**, **13 threat intelligence sources**, and **automated n8n workflows** to analyze suspicious files and URLs, extract indicators of compromise, and generate professional investigation reports.
 
 Submit a file or URL. RoboCop's agents analyze the content, enrich IOCs against threat intel feeds, map behaviors to MITRE ATT&CK, generate investigation plans, and produce a detailed report -- all automatically.
 
@@ -25,15 +25,20 @@ Submit a file or URL. RoboCop's agents analyze the content, enrich IOCs against 
 - Threat severity assessment with confidence scoring
 - DFIR investigation plans with prioritized containment/eradication steps
 
-**Threat Intelligence Enrichment**
+**Threat Intelligence Enrichment (13 Sources — All Free Tier)**
 - VirusTotal (file/URL reputation and detection counts)
-- Shodan (IP intelligence and port data)
-- URLhaus (malware URL database)
+- Shodan (IP intelligence, open ports, services)
+- URLhaus (malware URL database by abuse.ch)
 - Google Safe Browsing (phishing/malware site detection)
-- CheckPhish (URL categorization)
-- IPQualityScore (URL risk scoring)
+- CheckPhish (URL phishing categorization)
+- IPQualityScore (IP/URL fraud and risk scoring)
 - NVD (CVE vulnerability lookups)
-- URL unshortening (redirect chain analysis)
+- URL Unshortening (redirect chain expansion)
+- GreyNoise (IP noise vs. targeted threat classification)
+- AbuseIPDB (community IP abuse reputation)
+- urlscan.io (URL visual analysis, DOM inspection, tech stack)
+- AlienVault OTX (pulse-based community threat intelligence)
+- MalwareBazaar (malware sample intelligence by abuse.ch)
 
 **SOC Analyst Dashboard**
 - Real-time submission metrics and completion rates
@@ -150,10 +155,10 @@ Access points:
             |             |             |       |
       +-----v-------------v-------------v------v---+
       |              PostgreSQL 16                   |
-      +---+---+---+---+---+---+---+---+---+--------+
-          |   |   |   |   |   |   |   |
-         VT Shodan URLh GSB  CP  IPQS NVD  Unshorten
-      (8 Threat Intelligence Integrations)
+      +--+--+--+--+--+--+--+--+--+--+--+--+--+-----+
+         |  |  |  |  |  |  |  |  |  |  |  |  |
+        VT Sh UH GSB CP IPQS NVD Un GN AB US OTX MB
+            (13 Threat Intelligence Integrations)
 ```
 
 ---
@@ -188,8 +193,13 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 | `URLHAUS_AUTH_KEY` | No | Malware URL database |
 | `GOOGLE_SAFEBROWSING_API_KEY` | No | Phishing detection |
 | `CHECKPHISH_API_KEY` | No | URL categorization |
-| `IPQUALITYSCORE_API_KEY` | No | URL risk scoring |
+| `IPQUALITYSCORE_API_KEY` | No | IP/URL risk scoring |
 | `NVD_API_KEY` | No | CVE lookups |
+| `GREYNOISE_API_KEY` | No | IP noise/threat classification |
+| `ABUSEIPDB_API_KEY` | No | IP abuse reputation |
+| `URLSCAN_API_KEY` | No | URL visual analysis |
+| `ALIENVAULT_OTX_API_KEY` | No | Community threat intelligence |
+| `MALWAREBAZAAR_API_KEY` | No | Malware sample lookups |
 
 Full configuration guide: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 

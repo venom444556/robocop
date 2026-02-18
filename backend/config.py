@@ -81,6 +81,21 @@ class Settings(BaseSettings):
     # CheckPhish
     checkphish_api_key: Optional[str] = None
 
+    # GreyNoise
+    greynoise_api_key: Optional[str] = None
+
+    # AbuseIPDB
+    abuseipdb_api_key: Optional[str] = None
+
+    # urlscan.io
+    urlscan_api_key: Optional[str] = None
+
+    # AlienVault OTX
+    alienvault_otx_api_key: Optional[str] = None
+
+    # MalwareBazaar (abuse.ch)
+    malwarebazaar_api_key: Optional[str] = None
+
     # n8n webhook configuration
     n8n_webhook_base_url: str = "http://localhost:5678/webhook"
 

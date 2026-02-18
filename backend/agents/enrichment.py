@@ -153,7 +153,10 @@ Provide:
         """
         from enrichment import (
             VirusTotalClient, ShodanClient, URLhausClient,
-            GoogleSafeBrowsingClient, IPQualityScoreClient
+            GoogleSafeBrowsingClient, IPQualityScoreClient,
+            CheckPhishClient, UnshortenClient,
+            GreyNoiseClient, AbuseIPDBClient, URLScanClient,
+            AlienVaultOTXClient, MalwareBazaarClient
         )
 
         vt = VirusTotalClient()
@@ -161,6 +164,13 @@ Provide:
         urlhaus = URLhausClient()
         gsb = GoogleSafeBrowsingClient()
         ipqs = IPQualityScoreClient()
+        checkphish = CheckPhishClient()
+        unshorten = UnshortenClient()
+        greynoise = GreyNoiseClient()
+        abuseipdb = AbuseIPDBClient()
+        urlscan = URLScanClient()
+        otx = AlienVaultOTXClient()
+        malwarebazaar = MalwareBazaarClient()
 
         results = {}
 
@@ -193,6 +203,20 @@ Provide:
                             "data": uh_result
                         })
 
+                    mb_result = await malwarebazaar.lookup_hash(ioc_value)
+                    if not mb_result.get("error") and mb_result.get("found"):
+                        results[ioc_value]["enrichment"].append({
+                            "source": "malwarebazaar",
+                            "data": mb_result
+                        })
+
+                    otx_hash_result = await otx.lookup_hash(ioc_value)
+                    if not otx_hash_result.get("error"):
+                        results[ioc_value]["enrichment"].append({
+                            "source": "alienvault_otx",
+                            "data": otx_hash_result
+                        })
+
                 elif ioc_type == "ip":
                     # IP lookups
                     vt_result = await vt.lookup_ip(ioc_value)
@@ -216,6 +240,27 @@ Provide:
                             "data": ipqs_result
                         })
 
+                    gn_result = await greynoise.lookup_ip(ioc_value)
+                    if not gn_result.get("error"):
+                        results[ioc_value]["enrichment"].append({
+                            "source": "greynoise",
+                            "data": gn_result
+                        })
+
+                    abuse_result = await abuseipdb.check_ip(ioc_value)
+                    if not abuse_result.get("error"):
+                        results[ioc_value]["enrichment"].append({
+                            "source": "abuseipdb",
+                            "data": abuse_result
+                        })
+
+                    otx_ip_result = await otx.lookup_ip(ioc_value)
+                    if not otx_ip_result.get("error"):
+                        results[ioc_value]["enrichment"].append({
+                            "source": "alienvault_otx",
+                            "data": otx_ip_result
+                        })
+
                 elif ioc_type == "domain":
                     # Domain lookups
                     vt_result = await vt.lookup_domain(ioc_value)
@@ -232,34 +277,80 @@ Provide:
                             "data": uh_result
                         })
 
+                    otx_domain_result = await otx.lookup_domain(ioc_value)
+                    if not otx_domain_result.get("error"):
+                        results[ioc_value]["enrichment"].append({
+                            "source": "alienvault_otx",
+                            "data": otx_domain_result
+                        })
+
+                    urlscan_domain_result = await urlscan.lookup_domain(ioc_value)
+                    if not urlscan_domain_result.get("error"):
+                        results[ioc_value]["enrichment"].append({
+                            "source": "urlscan",
+                            "data": urlscan_domain_result
+                        })
+
                 elif ioc_type == "url":
-                    # URL lookups
-                    vt_result = await vt.lookup_url(ioc_value)
+                    # Expand shortened URLs first so downstream lookups use the real URL
+                    lookup_url = ioc_value
+                    if unshorten.is_shortened_url(ioc_value):
+                        expand_result = await unshorten.expand(ioc_value)
+                        if not expand_result.get("error") and expand_result.get("expanded_url"):
+                            results[ioc_value]["enrichment"].append({
+                                "source": "url_unshorten",
+                                "data": expand_result
+                            })
+                            lookup_url = expand_result["expanded_url"]
+
+                    # URL lookups (use expanded URL if available)
+                    vt_result = await vt.lookup_url(lookup_url)
                     if not vt_result.get("error"):
                         results[ioc_value]["enrichment"].append({
                             "source": "virustotal",
                             "data": vt_result
                         })
 
-                    uh_result = await urlhaus.lookup_url(ioc_value)
+                    uh_result = await urlhaus.lookup_url(lookup_url)
                     if not uh_result.get("error") and uh_result.get("found"):
                         results[ioc_value]["enrichment"].append({
                             "source": "urlhaus",
                             "data": uh_result
                         })
 
-                    gsb_result = await gsb.check_url(ioc_value)
+                    gsb_result = await gsb.check_url(lookup_url)
                     if not gsb_result.get("error"):
                         results[ioc_value]["enrichment"].append({
                             "source": "google_safebrowsing",
                             "data": gsb_result
                         })
 
-                    ipqs_result = await ipqs.check_url(ioc_value)
+                    ipqs_result = await ipqs.check_url(lookup_url)
                     if not ipqs_result.get("error"):
                         results[ioc_value]["enrichment"].append({
                             "source": "ipqualityscore",
                             "data": ipqs_result
+                        })
+
+                    checkphish_result = await checkphish.scan_url(lookup_url)
+                    if not checkphish_result.get("error"):
+                        results[ioc_value]["enrichment"].append({
+                            "source": "checkphish",
+                            "data": checkphish_result
+                        })
+
+                    urlscan_result = await urlscan.scan_url(lookup_url)
+                    if not urlscan_result.get("error"):
+                        results[ioc_value]["enrichment"].append({
+                            "source": "urlscan",
+                            "data": urlscan_result
+                        })
+
+                    otx_url_result = await otx.lookup_url(lookup_url)
+                    if not otx_url_result.get("error"):
+                        results[ioc_value]["enrichment"].append({
+                            "source": "alienvault_otx",
+                            "data": otx_url_result
                         })
 
                 # Small delay to respect rate limits
