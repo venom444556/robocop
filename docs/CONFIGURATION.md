@@ -58,6 +58,14 @@ All configuration is done via environment variables. Create a `.env` file in the
 | `ALIENVAULT_OTX_API_KEY` | - | AlienVault OTX API key (free: unlimited) |
 | `MALWAREBAZAAR_API_KEY` | - | MalwareBazaar/abuse.ch auth key (free: fair use) |
 
+### Important: Account Signup Required
+
+> **You must create a separate free account on each service to get your own API key.** API keys are personal, tied to your account, and track your usage against rate limits. They cannot be shared or hardcoded in public repositories.
+>
+> **4 sources work immediately with zero signup:** URLhaus, MalwareBazaar, NVD, and URL Unshortening require no API key at all. The remaining 9 sources each need a free account (~2 minutes to register per service).
+>
+> RoboCop degrades gracefully — if an API key is not configured, that source is simply skipped and all other sources continue working normally.
+
 ### Enrichment Source Free Tier Summary
 
 All 13 enrichment sources offer free tiers. No paid subscriptions required.
@@ -123,6 +131,8 @@ All 13 enrichment sources offer free tiers. No paid subscriptions required.
 ---
 
 ## API Keys Setup
+
+Each enrichment service below requires you to **create a free account** and obtain your own personal API key. Keys take ~2 minutes each to set up. Never commit API keys to version control — use `.env` files or environment variables only.
 
 ### Anthropic Claude API (Required)
 

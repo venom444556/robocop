@@ -91,10 +91,13 @@ curl http://localhost:8000/api/analysis/1/results
 ```
 1. File uploaded → validated and stored
 2. Static analysis → scripts decoded, behaviors detected, IOCs extracted
-3. Enrichment → VirusTotal, Shodan, URLhaus, Safe Browsing, CheckPhish, IPQualityScore, NVD lookups
+3. Enrichment → 13 threat intel sources (VT, Shodan, URLhaus, GSB, CheckPhish, IPQS, NVD,
+   GreyNoise, AbuseIPDB, urlscan.io, AlienVault OTX, MalwareBazaar, URL Unshortening)
 4. AI Reasoning → 6 Claude agents analyze, map to MITRE ATT&CK, generate threat hunt findings
 5. Report generated → JSON, HTML, or PDF with TLP markings
 ```
+
+> **Note:** 4 enrichment sources (URLhaus, MalwareBazaar, NVD, URL Unshortening) work immediately with no signup. The remaining 9 each require a free account (~2 min each). See [Configuration Guide](CONFIGURATION.md#api-keys-setup) for setup instructions.
 
 ## Next Steps
 

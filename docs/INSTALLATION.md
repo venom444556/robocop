@@ -38,15 +38,23 @@ This guide covers how to install and set up RoboCop (Reasoning-Orchestration Bot
 
 ### Optional API Keys (for enrichment)
 
+RoboCop integrates 13 threat intel sources — all free tier. **Each service requires its own free account** to get a personal API key (~2 min signup each). Sources marked * work with no signup at all.
+
 | Service | Purpose | Get Key |
 |---------|---------|---------|
 | VirusTotal | Hash/URL/domain reputation | [virustotal.com](https://www.virustotal.com/gui/my-apikey) |
 | Shodan | IP intelligence | [account.shodan.io](https://account.shodan.io/) |
 | Google Safe Browsing | Phishing detection | [console.cloud.google.com](https://console.cloud.google.com/) |
-| IPQualityScore | Malicious URL detection | [ipqualityscore.com](https://www.ipqualityscore.com/) |
+| IPQualityScore | IP/URL risk scoring | [ipqualityscore.com](https://www.ipqualityscore.com/) |
 | CheckPhish | URL categorization | [checkphish.ai](https://checkphish.ai/) |
-| URLhaus | Malware URL database | [urlhaus-api.abuse.ch](https://urlhaus-api.abuse.ch/) |
-| NVD | CVE vulnerability data | [nvd.nist.gov](https://nvd.nist.gov/developers/request-an-api-key) |
+| URLhaus* | Malware URL database | [urlhaus-api.abuse.ch](https://urlhaus-api.abuse.ch/) |
+| NVD* | CVE vulnerability data | [nvd.nist.gov](https://nvd.nist.gov/developers/request-an-api-key) |
+| GreyNoise | IP noise/threat classification | [viz.greynoise.io](https://viz.greynoise.io/signup) |
+| AbuseIPDB | IP abuse reputation | [abuseipdb.com](https://www.abuseipdb.com/register) |
+| urlscan.io | URL visual analysis | [urlscan.io](https://urlscan.io/user/signup) |
+| AlienVault OTX | Community threat intelligence | [otx.alienvault.com](https://otx.alienvault.com/) |
+| MalwareBazaar* | Malware sample lookups | [auth.abuse.ch](https://auth.abuse.ch/) |
+| URL Unshortening* | Redirect chain expansion | No signup needed |
 
 ---
 
