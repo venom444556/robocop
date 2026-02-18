@@ -16,6 +16,14 @@ import {
   Target,
   ChevronDown,
   ChevronRight,
+  Activity,
+  Eye,
+  Wifi,
+  Database,
+  ShieldAlert,
+  Radio,
+  Link2,
+  Server,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { useState } from 'react'
@@ -59,9 +67,224 @@ const priorityColors = {
   P4: 'bg-gray-100 text-gray-700 border-gray-300',
 }
 
+const sourceConfig = {
+  virustotal:     { label: 'VirusTotal',     icon: ShieldAlert, color: 'blue' },
+  shodan:         { label: 'Shodan',         icon: Server,      color: 'red' },
+  ipqualityscore: { label: 'IPQS',           icon: Activity,    color: 'purple' },
+  greynoise:      { label: 'GreyNoise',      icon: Radio,       color: 'green' },
+  abuseipdb:      { label: 'AbuseIPDB',      icon: ShieldAlert, color: 'orange' },
+  alienvault_otx: { label: 'OTX',            icon: Eye,         color: 'indigo' },
+  whois:          { label: 'WHOIS',          icon: Database,    color: 'gray' },
+  urlhaus:        { label: 'URLhaus',        icon: Link2,       color: 'red' },
+  malwarebazaar:  { label: 'MalwareBazaar',  icon: Database,    color: 'orange' },
+  urlscan:        { label: 'urlscan.io',     icon: Globe,       color: 'teal' },
+  google_safebrowsing: { label: 'SafeBrowsing', icon: Shield,  color: 'green' },
+  checkphish:     { label: 'CheckPhish',     icon: Wifi,        color: 'blue' },
+}
+
+const verdictStyles = {
+  malicious:  'bg-red-100 text-red-700 border-red-300',
+  suspicious: 'bg-orange-100 text-orange-700 border-orange-300',
+  clean:      'bg-green-100 text-green-700 border-green-300',
+  unknown:    'bg-gray-100 text-gray-600 border-gray-300',
+}
+
+function getVerdict(source, data) {
+  if (!data) return 'unknown'
+  // VirusTotal
+  if (source === 'virustotal') {
+    const pos = data.positives ?? data.malicious_count ?? 0
+    if (pos >= 5) return 'malicious'
+    if (pos >= 1) return 'suspicious'
+    return 'clean'
+  }
+  // AbuseIPDB
+  if (source === 'abuseipdb') {
+    const score = data.abuse_confidence_score ?? data.abuseConfidenceScore ?? 0
+    if (score >= 75) return 'malicious'
+    if (score >= 25) return 'suspicious'
+    return 'clean'
+  }
+  // GreyNoise
+  if (source === 'greynoise') {
+    const c = (data.classification || '').toLowerCase()
+    if (c === 'malicious') return 'malicious'
+    if (c === 'benign') return 'clean'
+    return 'unknown'
+  }
+  // IPQS
+  if (source === 'ipqualityscore') {
+    const fs = data.fraud_score ?? 0
+    if (fs >= 85) return 'malicious'
+    if (fs >= 50) return 'suspicious'
+    return 'clean'
+  }
+  // URLhaus / MalwareBazaar
+  if (source === 'urlhaus' || source === 'malwarebazaar') {
+    return data.found ? 'malicious' : 'clean'
+  }
+  // urlscan
+  if (source === 'urlscan') {
+    if (data.malicious) return 'malicious'
+    return 'clean'
+  }
+  // SafeBrowsing
+  if (source === 'google_safebrowsing') {
+    if (data.threats?.length > 0) return 'malicious'
+    return 'clean'
+  }
+  // CheckPhish
+  if (source === 'checkphish') {
+    const disp = (data.disposition || '').toLowerCase()
+    if (disp === 'phish' || disp === 'malware') return 'malicious'
+    if (disp === 'suspicious') return 'suspicious'
+    return 'clean'
+  }
+  // OTX
+  if (source === 'alienvault_otx') {
+    const pc = data.pulse_count ?? 0
+    if (pc >= 5) return 'malicious'
+    if (pc >= 1) return 'suspicious'
+    return 'clean'
+  }
+  // Shodan
+  if (source === 'shodan') {
+    const vulns = data.vulns?.length ?? 0
+    if (vulns >= 3) return 'malicious'
+    if (vulns >= 1) return 'suspicious'
+    return 'clean'
+  }
+  // WHOIS — informational, always unknown
+  if (source === 'whois') return 'unknown'
+  return 'unknown'
+}
+
+function getSourceFacts(source, data) {
+  if (!data) return []
+  const facts = []
+  const add = (label, value) => { if (value != null && value !== '' && value !== false) facts.push({ label, value: String(value) }) }
+
+  if (source === 'virustotal') {
+    add('Detections', `${data.positives ?? data.malicious_count ?? 0}/${data.total ?? data.total_engines ?? '?'}`)
+    add('Reputation', data.reputation)
+    add('Last Analysis', data.last_analysis_date)
+    add('Community Score', data.community_score)
+  } else if (source === 'shodan') {
+    add('Org', data.org)
+    add('ISP', data.isp)
+    add('OS', data.os)
+    add('Ports', data.ports?.join(', '))
+    add('Vulns', data.vulns?.length)
+  } else if (source === 'ipqualityscore') {
+    add('Fraud Score', data.fraud_score)
+    add('VPN', data.vpn)
+    add('Proxy', data.proxy)
+    add('Bot', data.bot_status)
+    add('ISP', data.ISP || data.isp)
+  } else if (source === 'greynoise') {
+    add('Classification', data.classification)
+    add('Noise', data.noise)
+    add('RIOT', data.riot)
+    add('Name', data.name)
+    add('Last Seen', data.last_seen)
+  } else if (source === 'abuseipdb') {
+    add('Abuse Score', `${data.abuse_confidence_score ?? data.abuseConfidenceScore ?? 0}%`)
+    add('Total Reports', data.total_reports ?? data.totalReports)
+    add('Country', data.country_code ?? data.countryCode)
+    add('ISP', data.isp)
+    add('Usage Type', data.usage_type ?? data.usageType)
+  } else if (source === 'alienvault_otx') {
+    add('Pulses', data.pulse_count)
+    add('Country', data.country)
+    add('ASN', data.asn)
+    add('Reputation', data.reputation)
+    if (data.pulses?.[0]) add('Top Pulse', data.pulses[0].name)
+  } else if (source === 'whois') {
+    add('Registrar', data.registrar)
+    add('Org', data.org)
+    add('Country', data.country)
+    add('Created', data.creation_date)
+    add('Expires', data.expiration_date)
+    add('ASN', data.asn)
+    add('Network', data.network_name)
+  } else if (source === 'urlhaus') {
+    add('Status', data.url_status || data.threat)
+    add('Threat', data.threat)
+    add('Tags', data.tags?.join(', '))
+    add('Date Added', data.date_added)
+  } else if (source === 'malwarebazaar') {
+    add('Signature', data.signature)
+    add('File Type', data.file_type)
+    add('Tags', data.tags?.join(', '))
+    add('First Seen', data.first_seen)
+    add('File Name', data.file_name)
+  } else if (source === 'urlscan') {
+    add('Domain', data.domain)
+    add('IP', data.ip)
+    add('Country', data.country)
+    add('Server', data.server)
+    add('Score', data.score)
+  } else if (source === 'google_safebrowsing') {
+    add('Threats', data.threats?.map(t => t.threatType).join(', '))
+  } else if (source === 'checkphish') {
+    add('Disposition', data.disposition)
+    add('Brand', data.brand)
+  }
+  return facts
+}
+
+function SourceBadge({ source, data }) {
+  const cfg = sourceConfig[source] || { label: source, icon: Shield, color: 'gray' }
+  const verdict = getVerdict(source, data)
+  const Icon = cfg.icon
+  const style = verdictStyles[verdict]
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${style}`}>
+      <Icon className="h-3 w-3" />
+      {cfg.label}
+    </span>
+  )
+}
+
+function EnrichmentSourceDetail({ source, data }) {
+  const cfg = sourceConfig[source] || { label: source, icon: Shield, color: 'gray' }
+  const verdict = getVerdict(source, data)
+  const facts = getSourceFacts(source, data)
+  const Icon = cfg.icon
+  const style = verdictStyles[verdict]
+
+  return (
+    <div className={`border rounded-lg p-3 ${style.replace('text-', 'border-').split(' ')[0]} bg-white`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-gray-600" />
+          <span className="text-sm font-semibold text-gray-800">{cfg.label}</span>
+        </div>
+        <span className={`px-2 py-0.5 rounded text-xs font-medium border capitalize ${style}`}>
+          {verdict}
+        </span>
+      </div>
+      {facts.length > 0 ? (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+          {facts.map((f, i) => (
+            <div key={i} className="text-xs">
+              <span className="text-gray-500">{f.label}:</span>{' '}
+              <span className="text-gray-800 font-medium">{f.value}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-400">No details available</p>
+      )}
+    </div>
+  )
+}
+
 function ReportDetailPage() {
   const { id } = useParams()
   const [expandedPriorities, setExpandedPriorities] = useState({ P1: true, P2: true, P3: false, P4: false })
+  const [expandedIOCs, setExpandedIOCs] = useState({})
+  const [enrichmentExpanded, setEnrichmentExpanded] = useState(true)
 
   const { data: submission, isLoading: loadingSubmission } = useQuery({
     queryKey: ['submission', id],
@@ -124,6 +347,16 @@ function ReportDetailPage() {
   const sandboxAnalysis = analysis?.analysis_results?.find(r => r.analyzer === 'sandbox_parser')
   const decodingResult = analysis?.analysis_results?.find(r => r.analyzer === 'script_decoder')
   const nvdEnrichment = analysis?.analysis_results?.find(r => r.analyzer === 'nvd_enrichment')
+  const enrichmentResult = analysis?.analysis_results?.find(r => r.analyzer === 'enrichment_summary')
+  const enrichmentData = enrichmentResult?.results_json || {}
+  const enrichedIOCs = Object.entries(enrichmentData)
+    .filter(([key]) => !key.startsWith('_'))
+    .map(([iocValue, data]) => ({ iocValue, ...data }))
+    .filter(entry => entry.enrichment?.length > 0)
+
+  const toggleIOC = (iocValue) => {
+    setExpandedIOCs(prev => ({ ...prev, [iocValue]: !prev[iocValue] }))
+  }
 
   const riskLevel = scriptAnalysis?.results_json?.risk_level ||
                    sandboxAnalysis?.results_json?.verdict ||
@@ -479,6 +712,68 @@ function ReportDetailPage() {
                 </p>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Enrichment Intelligence */}
+        {enrichedIOCs.length > 0 && (
+          <div className="card lg:col-span-2">
+            <button
+              onClick={() => setEnrichmentExpanded(prev => !prev)}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <Activity className="h-5 w-5 mr-2 text-primary-500" />
+                Enrichment Intelligence ({enrichedIOCs.length} IOCs)
+              </h3>
+              {enrichmentExpanded
+                ? <ChevronDown className="h-5 w-5 text-gray-400" />
+                : <ChevronRight className="h-5 w-5 text-gray-400" />
+              }
+            </button>
+
+            {enrichmentExpanded && (
+              <div className="mt-4 space-y-2">
+                {enrichedIOCs.map((entry) => {
+                  const isOpen = expandedIOCs[entry.iocValue]
+                  const iocType = entry.type || 'unknown'
+                  const TypeIcon = iocType === 'ip' ? Wifi : iocType === 'domain' ? Globe : iocType === 'url' ? Link2 : Hash
+
+                  return (
+                    <div key={entry.iocValue} className="border rounded-lg">
+                      <button
+                        onClick={() => toggleIOC(entry.iocValue)}
+                        className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-gray-50 rounded-lg"
+                      >
+                        {isOpen
+                          ? <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                          : <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                        }
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 capitalize shrink-0">
+                          <TypeIcon className="h-3 w-3" />
+                          {iocType}
+                        </span>
+                        <span className="font-mono text-sm text-gray-800 truncate">{entry.iocValue}</span>
+                        <div className="flex gap-1 ml-auto shrink-0 flex-wrap justify-end">
+                          {entry.enrichment.map((e, i) => (
+                            <SourceBadge key={i} source={e.source} data={e.data} />
+                          ))}
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div className="px-4 pb-4 pt-1 border-t bg-gray-50 rounded-b-lg">
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {entry.enrichment.map((e, i) => (
+                              <EnrichmentSourceDetail key={i} source={e.source} data={e.data} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 

@@ -13,6 +13,8 @@ from .abuseipdb import AbuseIPDBClient
 from .urlscan import URLScanClient
 from .alienvault_otx import AlienVaultOTXClient
 from .malwarebazaar import MalwareBazaarClient
+from .whois_lookup import WhoisLookupClient
+from .cache import EnrichmentCache, get_enrichment_cache
 
 __all__ = [
     "VirusTotalClient",
@@ -28,4 +30,7 @@ __all__ = [
     "URLScanClient",
     "AlienVaultOTXClient",
     "MalwareBazaarClient",
+    "WhoisLookupClient",
+    "EnrichmentCache",
+    "get_enrichment_cache",
 ]

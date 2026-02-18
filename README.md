@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/robocop-banner.png" alt="RoboCop Malware Analysis Platform" width="100%">
+</p>
+
 # RoboCop
 
 **Reasoning-Orchestration Bot for Cyber Operations Protection**

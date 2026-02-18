@@ -144,6 +144,7 @@ Provide:
     async def enrich_iocs(self, iocs: List[Dict]) -> Dict:
         """
         Orchestrate enrichment for a list of IOCs.
+        All sources for a given IOC are queried in parallel via asyncio.gather().
 
         Args:
             iocs: List of IOCs to enrich
@@ -156,7 +157,8 @@ Provide:
             GoogleSafeBrowsingClient, IPQualityScoreClient,
             CheckPhishClient, UnshortenClient,
             GreyNoiseClient, AbuseIPDBClient, URLScanClient,
-            AlienVaultOTXClient, MalwareBazaarClient
+            AlienVaultOTXClient, MalwareBazaarClient,
+            WhoisLookupClient, get_enrichment_cache,
         )
 
         vt = VirusTotalClient()
@@ -171,6 +173,33 @@ Provide:
         urlscan = URLScanClient()
         otx = AlienVaultOTXClient()
         malwarebazaar = MalwareBazaarClient()
+        whois_client = WhoisLookupClient()
+        cache = get_enrichment_cache()
+
+        # Sources that require a "found" check in addition to no error
+        FOUND_REQUIRED = {"urlhaus", "malwarebazaar"}
+
+        async def _cached_enrich(coro, source: str, ioc_type: str, ioc_value: str):
+            """Check cache, call API on miss, store successful results."""
+            cached = cache.get(source, ioc_type, ioc_value)
+            if cached is not None:
+                return (source, cached)
+            try:
+                result = await coro
+                if not result.get("error"):
+                    cache.set(source, ioc_type, ioc_value, result)
+                return (source, result)
+            except Exception as e:
+                return (source, {"error": f"Exception: {str(e)}"})
+
+        def _collect(gathered, enrichment_list):
+            """Filter gather results and append valid ones to enrichment list."""
+            for source_name, result in gathered:
+                if result.get("error"):
+                    continue
+                if source_name in FOUND_REQUIRED and not result.get("found"):
+                    continue
+                enrichment_list.append({"source": source_name, "data": result})
 
         results = {}
 
@@ -182,182 +211,75 @@ Provide:
                 continue
 
             results[ioc_value] = {"type": ioc_type, "enrichment": []}
+            enrichment_list = results[ioc_value]["enrichment"]
 
             try:
                 if ioc_type in ["hash_md5", "hash_sha1", "hash_sha256"]:
-                    # Hash lookups
-                    vt_result = await vt.lookup_hash(ioc_value)
-                    if not vt_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "virustotal",
-                            "data": vt_result
-                        })
-
-                    uh_result = await urlhaus.lookup_hash(
-                        ioc_value,
-                        "sha256" if ioc_type == "hash_sha256" else "md5"
+                    hash_type_arg = "sha256" if ioc_type == "hash_sha256" else "md5"
+                    gathered = await asyncio.gather(
+                        _cached_enrich(vt.lookup_hash(ioc_value), "virustotal", ioc_type, ioc_value),
+                        _cached_enrich(urlhaus.lookup_hash(ioc_value, hash_type_arg), "urlhaus", ioc_type, ioc_value),
+                        _cached_enrich(malwarebazaar.lookup_hash(ioc_value), "malwarebazaar", ioc_type, ioc_value),
+                        _cached_enrich(otx.lookup_hash(ioc_value), "alienvault_otx", ioc_type, ioc_value),
                     )
-                    if not uh_result.get("error") and uh_result.get("found"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "urlhaus",
-                            "data": uh_result
-                        })
-
-                    mb_result = await malwarebazaar.lookup_hash(ioc_value)
-                    if not mb_result.get("error") and mb_result.get("found"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "malwarebazaar",
-                            "data": mb_result
-                        })
-
-                    otx_hash_result = await otx.lookup_hash(ioc_value)
-                    if not otx_hash_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "alienvault_otx",
-                            "data": otx_hash_result
-                        })
+                    _collect(gathered, enrichment_list)
 
                 elif ioc_type == "ip":
-                    # IP lookups
-                    vt_result = await vt.lookup_ip(ioc_value)
-                    if not vt_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "virustotal",
-                            "data": vt_result
-                        })
-
-                    shodan_result = await shodan.lookup_ip(ioc_value)
-                    if not shodan_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "shodan",
-                            "data": shodan_result
-                        })
-
-                    ipqs_result = await ipqs.check_ip(ioc_value)
-                    if not ipqs_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "ipqualityscore",
-                            "data": ipqs_result
-                        })
-
-                    gn_result = await greynoise.lookup_ip(ioc_value)
-                    if not gn_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "greynoise",
-                            "data": gn_result
-                        })
-
-                    abuse_result = await abuseipdb.check_ip(ioc_value)
-                    if not abuse_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "abuseipdb",
-                            "data": abuse_result
-                        })
-
-                    otx_ip_result = await otx.lookup_ip(ioc_value)
-                    if not otx_ip_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "alienvault_otx",
-                            "data": otx_ip_result
-                        })
+                    gathered = await asyncio.gather(
+                        _cached_enrich(vt.lookup_ip(ioc_value), "virustotal", ioc_type, ioc_value),
+                        _cached_enrich(shodan.lookup_ip(ioc_value), "shodan", ioc_type, ioc_value),
+                        _cached_enrich(ipqs.check_ip(ioc_value), "ipqualityscore", ioc_type, ioc_value),
+                        _cached_enrich(greynoise.lookup_ip(ioc_value), "greynoise", ioc_type, ioc_value),
+                        _cached_enrich(abuseipdb.check_ip(ioc_value), "abuseipdb", ioc_type, ioc_value),
+                        _cached_enrich(otx.lookup_ip(ioc_value), "alienvault_otx", ioc_type, ioc_value),
+                        _cached_enrich(whois_client.lookup_ip(ioc_value), "whois", ioc_type, ioc_value),
+                    )
+                    _collect(gathered, enrichment_list)
 
                 elif ioc_type == "domain":
-                    # Domain lookups
-                    vt_result = await vt.lookup_domain(ioc_value)
-                    if not vt_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "virustotal",
-                            "data": vt_result
-                        })
-
-                    uh_result = await urlhaus.lookup_host(ioc_value)
-                    if not uh_result.get("error") and uh_result.get("found"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "urlhaus",
-                            "data": uh_result
-                        })
-
-                    otx_domain_result = await otx.lookup_domain(ioc_value)
-                    if not otx_domain_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "alienvault_otx",
-                            "data": otx_domain_result
-                        })
-
-                    urlscan_domain_result = await urlscan.lookup_domain(ioc_value)
-                    if not urlscan_domain_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "urlscan",
-                            "data": urlscan_domain_result
-                        })
+                    gathered = await asyncio.gather(
+                        _cached_enrich(vt.lookup_domain(ioc_value), "virustotal", ioc_type, ioc_value),
+                        _cached_enrich(urlhaus.lookup_host(ioc_value), "urlhaus", ioc_type, ioc_value),
+                        _cached_enrich(otx.lookup_domain(ioc_value), "alienvault_otx", ioc_type, ioc_value),
+                        _cached_enrich(urlscan.lookup_domain(ioc_value), "urlscan", ioc_type, ioc_value),
+                        _cached_enrich(whois_client.lookup_domain(ioc_value), "whois", ioc_type, ioc_value),
+                    )
+                    _collect(gathered, enrichment_list)
 
                 elif ioc_type == "url":
-                    # Expand shortened URLs first so downstream lookups use the real URL
+                    # Phase 1: expand shortened URL (sequential dependency)
                     lookup_url = ioc_value
                     if unshorten.is_shortened_url(ioc_value):
                         expand_result = await unshorten.expand(ioc_value)
                         if not expand_result.get("error") and expand_result.get("expanded_url"):
-                            results[ioc_value]["enrichment"].append({
-                                "source": "url_unshorten",
-                                "data": expand_result
-                            })
+                            enrichment_list.append({"source": "url_unshorten", "data": expand_result})
                             lookup_url = expand_result["expanded_url"]
 
-                    # URL lookups (use expanded URL if available)
-                    vt_result = await vt.lookup_url(lookup_url)
-                    if not vt_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "virustotal",
-                            "data": vt_result
-                        })
+                    # Phase 2: all URL lookups in parallel
+                    gathered = await asyncio.gather(
+                        _cached_enrich(vt.lookup_url(lookup_url), "virustotal", ioc_type, ioc_value),
+                        _cached_enrich(urlhaus.lookup_url(lookup_url), "urlhaus", ioc_type, ioc_value),
+                        _cached_enrich(gsb.check_url(lookup_url), "google_safebrowsing", ioc_type, ioc_value),
+                        _cached_enrich(ipqs.check_url(lookup_url), "ipqualityscore", ioc_type, ioc_value),
+                        _cached_enrich(checkphish.scan_url(lookup_url), "checkphish", ioc_type, ioc_value),
+                        _cached_enrich(urlscan.scan_url(lookup_url), "urlscan", ioc_type, ioc_value),
+                        _cached_enrich(otx.lookup_url(lookup_url), "alienvault_otx", ioc_type, ioc_value),
+                    )
+                    _collect(gathered, enrichment_list)
 
-                    uh_result = await urlhaus.lookup_url(lookup_url)
-                    if not uh_result.get("error") and uh_result.get("found"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "urlhaus",
-                            "data": uh_result
-                        })
-
-                    gsb_result = await gsb.check_url(lookup_url)
-                    if not gsb_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "google_safebrowsing",
-                            "data": gsb_result
-                        })
-
-                    ipqs_result = await ipqs.check_url(lookup_url)
-                    if not ipqs_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "ipqualityscore",
-                            "data": ipqs_result
-                        })
-
-                    checkphish_result = await checkphish.scan_url(lookup_url)
-                    if not checkphish_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "checkphish",
-                            "data": checkphish_result
-                        })
-
-                    urlscan_result = await urlscan.scan_url(lookup_url)
-                    if not urlscan_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "urlscan",
-                            "data": urlscan_result
-                        })
-
-                    otx_url_result = await otx.lookup_url(lookup_url)
-                    if not otx_url_result.get("error"):
-                        results[ioc_value]["enrichment"].append({
-                            "source": "alienvault_otx",
-                            "data": otx_url_result
-                        })
-
-                # Small delay to respect rate limits
+                # Small delay between IOCs to respect rate limits
                 await asyncio.sleep(0.5)
 
             except Exception as e:
                 results[ioc_value]["error"] = str(e)
+
+        # Enrich with NVD CVE data using accumulated results as context
+        try:
+            nvd_results = await self.enrich_with_nvd(results)
+            if nvd_results and nvd_results.get("nvd_cves"):
+                results["_nvd_enrichment"] = nvd_results
+        except Exception as e:
+            logger.warning("NVD enrichment failed: %s", str(e))
 
         return results
 
