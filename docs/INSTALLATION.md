@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide covers how to install and set up RoboCop (Reasoning-Orchestrated Bot for Cyber Operations Protection) for development and production use.
+This guide covers how to install and set up RoboCop (Reasoning-Orchestration Bot for Cyber Operations Protection) for development and production use.
 
 ## Table of Contents
 

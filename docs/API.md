@@ -1,6 +1,6 @@
 # API Reference
 
-Complete API documentation for RoboCop (Reasoning-Orchestrated Bot for Cyber Operations Protection).
+Complete API documentation for RoboCop (Reasoning-Orchestration Bot for Cyber Operations Protection).
 
 ## Table of Contents
 

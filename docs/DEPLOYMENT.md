@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Production deployment guide for RoboCop (Reasoning-Orchestrated Bot for Cyber Operations Protection).
+Production deployment guide for RoboCop (Reasoning-Orchestration Bot for Cyber Operations Protection).
 
 ## Table of Contents
 

@@ -1,6 +1,6 @@
 # Architecture Guide
 
-Technical architecture documentation for RoboCop (Reasoning-Orchestrated Bot for Cyber Operations Protection).
+Technical architecture documentation for RoboCop (Reasoning-Orchestration Bot for Cyber Operations Protection).
 
 ## Table of Contents
 
