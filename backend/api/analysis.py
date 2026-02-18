@@ -9,10 +9,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
+from typing import List
+
 from config import get_settings
 from database import (
     get_db, async_session, Submission, SubmissionStatus, AnalysisResult,
-    IOC, IOCType, SubmissionType
+    IOC, IOCType, SubmissionType, MITRETechniqueValidation, InvestigationPlan
 )
 
 router = APIRouter()
@@ -44,11 +46,17 @@ class IOCResponse(BaseModel):
 
 
 class FullAnalysisResponse(BaseModel):
-    """Complete analysis response including IOCs and results."""
+    """Complete analysis response including IOCs, results, and enriched data."""
     submission_id: int
     status: str
+    severity: Optional[str] = None
+    tlp_marking: Optional[str] = None
+    confidence_score: Optional[int] = None
     analysis_results: list[AnalysisResultResponse]
     iocs: list[IOCResponse]
+    mitre_validation: Optional[dict] = None
+    investigation_plan: Optional[dict] = None
+    threat_hunt_findings: Optional[list] = None
 
 
 async def run_analysis(submission_id: int):
@@ -264,9 +272,21 @@ async def get_analysis_results(
     )
     iocs = ioc_results.scalars().all()
 
+    # Get severity/tlp/confidence from submission
+    severity_val = None
+    if hasattr(submission, 'severity') and submission.severity:
+        severity_val = submission.severity.value if hasattr(submission.severity, 'value') else str(submission.severity)
+
+    tlp_val = None
+    if hasattr(submission, 'tlp_marking') and submission.tlp_marking:
+        tlp_val = submission.tlp_marking.value if hasattr(submission.tlp_marking, 'value') else str(submission.tlp_marking)
+
     return FullAnalysisResponse(
         submission_id=submission_id,
         status=submission.status.value,
+        severity=severity_val,
+        tlp_marking=tlp_val,
+        confidence_score=getattr(submission, 'confidence_score', None),
         analysis_results=[
             AnalysisResultResponse(
                 id=r.id,
@@ -287,6 +307,126 @@ async def get_analysis_results(
             for i in iocs
         ]
     )
+
+
+@router.get("/{submission_id}/mitre-validation")
+async def get_mitre_validation(
+    submission_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get MITRE ATT&CK validation results for a submission."""
+    result = await db.execute(
+        select(Submission).filter(Submission.id == submission_id)
+    )
+    submission = result.scalar_one_or_none()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    validations = await db.execute(
+        select(MITRETechniqueValidation).filter(
+            MITRETechniqueValidation.submission_id == submission_id
+        )
+    )
+    all_validations = validations.scalars().all()
+
+    validated = []
+    supposition = []
+    for v in all_validations:
+        entry = {
+            "technique_id": v.technique_id,
+            "technique_name": v.technique_name,
+            "tactic": v.tactic,
+            "is_validated": v.is_validated,
+            "confidence": v.confidence,
+            "evidence": v.evidence,
+        }
+        if v.is_validated:
+            validated.append(entry)
+        else:
+            supposition.append(entry)
+
+    return {
+        "submission_id": submission_id,
+        "validated": validated,
+        "supposition": supposition,
+        "stats": {
+            "total": len(all_validations),
+            "validated_count": len(validated),
+            "supposition_count": len(supposition),
+            "validation_rate": round(
+                len(validated) / max(len(all_validations), 1) * 100, 1
+            ),
+        },
+    }
+
+
+@router.get("/{submission_id}/investigation-plan")
+async def get_investigation_plan(
+    submission_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get the DFIR investigation plan for a submission."""
+    result = await db.execute(
+        select(Submission).filter(Submission.id == submission_id)
+    )
+    submission = result.scalar_one_or_none()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    plans = await db.execute(
+        select(InvestigationPlan)
+        .filter(InvestigationPlan.submission_id == submission_id)
+        .order_by(InvestigationPlan.created_at.desc())
+    )
+    plan = plans.scalar_one_or_none()
+
+    if not plan:
+        raise HTTPException(status_code=404, detail="No investigation plan found")
+
+    return {
+        "submission_id": submission_id,
+        "plan": plan.plan_json,
+        "created_at": plan.created_at.isoformat() if plan.created_at else None,
+    }
+
+
+@router.get("/{submission_id}/threat-hunt")
+async def get_threat_hunt_results(
+    submission_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get threat hunt findings for a submission."""
+    result = await db.execute(
+        select(Submission).filter(Submission.id == submission_id)
+    )
+    submission = result.scalar_one_or_none()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    # Threat hunt results are stored as AnalysisResult with analyzer="threat_hunter"
+    results = await db.execute(
+        select(AnalysisResult).filter(
+            AnalysisResult.submission_id == submission_id,
+            AnalysisResult.analyzer == "threat_hunter"
+        )
+    )
+    hunt_result = results.scalar_one_or_none()
+
+    if not hunt_result:
+        # Return empty if no dedicated threat hunt result,
+        # but data may be in the report
+        return {
+            "submission_id": submission_id,
+            "findings": [],
+            "hunt_summary": None,
+        }
+
+    hunt_data = hunt_result.results_json or {}
+    return {
+        "submission_id": submission_id,
+        "findings": hunt_data.get("threat_hunt", {}).get("findings", []),
+        "hunt_summary": hunt_data.get("threat_hunt", {}).get("hunt_summary"),
+    }
 
 
 @router.get("/{submission_id}/status")

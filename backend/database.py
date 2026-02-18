@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, ForeignKey,
-    JSON, Enum as SQLEnum, create_engine
+    JSON, Boolean, Enum as SQLEnum, create_engine
 )
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
@@ -30,6 +30,30 @@ class SubmissionStatus(str, enum.Enum):
     REASONING = "reasoning"
     COMPLETE = "complete"
     FAILED = "failed"
+
+
+class SeverityLevel(str, enum.Enum):
+    """Severity levels for findings."""
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFORMATIONAL = "informational"
+
+
+class TLPMarking(str, enum.Enum):
+    """Traffic Light Protocol markings."""
+    WHITE = "TLP:WHITE"
+    GREEN = "TLP:GREEN"
+    AMBER = "TLP:AMBER"
+    RED = "TLP:RED"
+
+
+class ConfidenceLevel(str, enum.Enum):
+    """Confidence levels for findings."""
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
 
 
 class IOCType(str, enum.Enum):
@@ -58,6 +82,9 @@ class Submission(Base):
     file_hash_sha256 = Column(String(64), nullable=True)
     status = Column(SQLEnum(SubmissionStatus), default=SubmissionStatus.PENDING)
     error_message = Column(Text, nullable=True)
+    severity = Column(SQLEnum(SeverityLevel), nullable=True)
+    tlp_marking = Column(SQLEnum(TLPMarking), nullable=True)
+    confidence_score = Column(Integer, nullable=True)  # 0-100
     created_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
 
@@ -65,6 +92,8 @@ class Submission(Base):
     analysis_results = relationship("AnalysisResult", back_populates="submission")
     iocs = relationship("IOC", back_populates="submission")
     reports = relationship("Report", back_populates="submission")
+    mitre_validations = relationship("MITRETechniqueValidation", back_populates="submission")
+    investigation_plans = relationship("InvestigationPlan", back_populates="submission")
 
 
 class AnalysisResult(Base):
@@ -124,6 +153,50 @@ class Report(Base):
 
     # Relationships
     submission = relationship("Submission", back_populates="reports")
+
+
+class MITRETechniqueValidation(Base):
+    """Validated MITRE ATT&CK technique mappings."""
+    __tablename__ = "mitre_validations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=False)
+    technique_id = Column(String(20), nullable=False)  # e.g., "T1059.001"
+    technique_name = Column(String(200), nullable=True)
+    tactic = Column(String(100), nullable=True)
+    is_validated = Column(Boolean, default=False)  # True = confirmed in official MITRE framework
+    confidence = Column(String(20), nullable=True)  # "high", "medium", "low"
+    evidence = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    submission = relationship("Submission", back_populates="mitre_validations")
+
+
+class InvestigationPlan(Base):
+    """DFIR investigation plans generated for submissions."""
+    __tablename__ = "investigation_plans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=False)
+    plan_json = Column(JSON, nullable=False)  # Structured investigation plan
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    submission = relationship("Submission", back_populates="investigation_plans")
+
+
+class ThreatIntelRecord(Base):
+    """Archived threat intelligence records for historical correlation."""
+    __tablename__ = "threat_intel_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=True)
+    record_type = Column(String(50), nullable=False)  # "finding", "ioc", "technique"
+    data_json = Column(JSON, nullable=False)
+    severity = Column(SQLEnum(SeverityLevel), nullable=True)
+    confidence = Column(SQLEnum(ConfidenceLevel), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 # Database engine and session setup

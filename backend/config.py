@@ -71,8 +71,20 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_file_size: int = 50 * 1024 * 1024  # 50MB
 
+    # NVD API (National Vulnerability Database)
+    nvd_api_key: Optional[str] = None
+    nvd_api_url: str = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+
+    # MITRE ATT&CK
+    mitre_attack_json_url: str = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+    mitre_attack_cache_dir: str = "./data/mitre_cache"
+
+    # Threat Intelligence Archive
+    threat_intel_archive_dir: str = "./data/threat_archive"
+
     # Report settings
     report_retention_days: int = 30
+    default_tlp_marking: str = "TLP:AMBER"
 
     class Config:
         env_file = ".env"

@@ -255,9 +255,14 @@ Format as code blocks with proper syntax highlighting."""
 
     async def generate_full_report(self, submission: Any, analysis_results: List[Dict],
                                    iocs: List[Dict], enrichment_data: Dict,
-                                   reasoning_analysis: Dict) -> Dict:
+                                   reasoning_analysis: Dict,
+                                   investigation_plan: Optional[Dict] = None,
+                                   threat_hunt_results: Optional[Dict] = None,
+                                   mitre_validation: Optional[Dict] = None,
+                                   severity: Optional[str] = None,
+                                   tlp: Optional[str] = None) -> Dict:
         """
-        Generate a complete analysis report.
+        Generate a complete analysis report with enriched SOC analyst sections.
 
         Args:
             submission: Submission object
@@ -265,6 +270,11 @@ Format as code blocks with proper syntax highlighting."""
             iocs: List of IOCs
             enrichment_data: Enrichment data
             reasoning_analysis: Reasoning agent analysis
+            investigation_plan: DFIR investigation plan (optional)
+            threat_hunt_results: Threat hunt findings (optional)
+            mitre_validation: MITRE ATT&CK validation results (optional)
+            severity: Overall severity level (optional)
+            tlp: TLP marking (optional)
 
         Returns:
             Dictionary with full report content
@@ -288,12 +298,106 @@ Format as code blocks with proper syntax highlighting."""
             "iocs": iocs[:20]
         })
 
+        # Build severity and TLP header
+        severity_display = (severity or "unknown").upper()
+        tlp_display = tlp or "TLP:AMBER"
+
+        # Build threat hunt findings section
+        threat_hunt_section = ""
+        if threat_hunt_results:
+            hunt_data = threat_hunt_results.get("threat_hunt", {})
+            findings = hunt_data.get("findings", [])
+            if findings:
+                threat_hunt_section = "\n## Threat Hunt Findings\n\n"
+                for f in findings:
+                    sev = f.get("severity", "Unknown")
+                    conf = f.get("confidence", "Unknown")
+                    threat_hunt_section += f"### {f.get('id', 'F-?')}: {f.get('title', 'Finding')}\n"
+                    threat_hunt_section += f"- **Severity:** {sev} | **Confidence:** {conf}\n"
+                    if f.get("confidence_reasoning"):
+                        threat_hunt_section += f"- **Confidence Reasoning:** {f['confidence_reasoning']}\n"
+                    threat_hunt_section += f"- **Recommendation:** {f.get('recommendation', 'investigate')}\n"
+                    if f.get("recommendation_detail"):
+                        threat_hunt_section += f"- **Detail:** {f['recommendation_detail']}\n"
+                    if f.get("description"):
+                        threat_hunt_section += f"\n{f['description']}\n"
+                    evidence = f.get("evidence", [])
+                    if evidence:
+                        threat_hunt_section += "\n**Evidence:**\n"
+                        for e in evidence:
+                            threat_hunt_section += f"- [{e.get('type', '?')}] `{e.get('value', '')}` — {e.get('source', '')}\n"
+                    threat_hunt_section += "\n"
+                if hunt_data.get("hunt_summary"):
+                    threat_hunt_section += f"\n**Hunt Summary:** {hunt_data['hunt_summary']}\n"
+
+        # Build MITRE validation section
+        mitre_section = ""
+        if mitre_validation:
+            stats = mitre_validation.get("stats", {})
+            validated = mitre_validation.get("validated", [])
+            supposition = mitre_validation.get("supposition", [])
+            mitre_section = "\n## MITRE ATT&CK Techniques (Validated)\n\n"
+            mitre_section += f"**Validation Rate:** {stats.get('validation_rate', 0)}% "
+            mitre_section += f"({stats.get('validated_count', 0)} validated / "
+            mitre_section += f"{stats.get('total', 0)} total)\n\n"
+            if validated:
+                mitre_section += "### Confirmed Techniques\n"
+                for t in validated:
+                    mitre_section += f"- **{t.get('id', '?')}** — {t.get('official_name', t.get('name', '?'))} "
+                    mitre_section += f"[{t.get('official_tactic', '')}]\n"
+            if supposition:
+                mitre_section += "\n### Unverified (LLM Supposition)\n"
+                for t in supposition:
+                    mitre_section += f"- **{t.get('id', '?')}** — {t.get('name', '?')} "
+                    mitre_section += f"({t.get('reason', 'unverified')})\n"
+
+        # Build investigation plan section
+        investigation_section = ""
+        if investigation_plan:
+            plan = investigation_plan.get("investigation_plan", {})
+            if isinstance(plan, dict) and not plan.get("raw_response"):
+                investigation_section = "\n## Investigation & Response Plan\n\n"
+
+                inv_steps = plan.get("investigation_steps", [])
+                if inv_steps:
+                    investigation_section += "### Investigation Steps\n"
+                    for step in inv_steps:
+                        p = step.get("priority", "P3")
+                        investigation_section += f"- **[{p}]** {step.get('action', '')}\n"
+                        if step.get("rationale"):
+                            investigation_section += f"  - Rationale: {step['rationale']}\n"
+
+                containment = plan.get("containment_actions", [])
+                if containment:
+                    investigation_section += "\n### Containment Actions\n"
+                    for action in containment:
+                        p = action.get("priority", "P3")
+                        investigation_section += f"- **[{p}]** {action.get('action', '')} "
+                        investigation_section += f"(scope: {action.get('scope', '?')})\n"
+
+                eradication = plan.get("eradication_procedures", [])
+                if eradication:
+                    investigation_section += "\n### Eradication & Recovery\n"
+                    for step in eradication:
+                        investigation_section += f"- {step.get('action', '')}\n"
+
+                recovery = plan.get("recovery_steps", [])
+                if recovery:
+                    for step in recovery:
+                        investigation_section += f"- {step.get('action', '')}\n"
+
+                notes = plan.get("analyst_notes")
+                if notes:
+                    investigation_section += f"\n**Analyst Notes:** {notes}\n"
+
         # Compile full report
         report = f"""# Malware Analysis Report
 
 **Report ID:** {submission.id}
 **Generated:** {datetime.utcnow().isoformat()}
 **Submission Type:** {submission.type.value if hasattr(submission.type, 'value') else str(submission.type)}
+**Severity:** {severity_display}
+**TLP:** {tlp_display}
 
 ---
 
@@ -306,11 +410,17 @@ Format as code blocks with proper syntax highlighting."""
 {narrative}
 
 ---
+{threat_hunt_section}
+---
+{mitre_section}
+---
 
 ## Indicators of Compromise
 
 {ioc_tables}
 
+---
+{investigation_section}
 ---
 
 ## Detection Rules
@@ -328,6 +438,8 @@ Format as code blocks with proper syntax highlighting."""
 - **SHA256:** {submission.file_hash_sha256 or 'N/A'}
 - **Analysis Date:** {datetime.utcnow().isoformat()}
 - **Total IOCs:** {len(iocs)}
+- **Severity:** {severity_display}
+- **TLP Marking:** {tlp_display}
 
 ---
 
@@ -340,5 +452,7 @@ Format as code blocks with proper syntax highlighting."""
             "narrative": narrative,
             "ioc_tables": ioc_tables,
             "detection_rules": detection_rules,
+            "severity": severity,
+            "tlp": tlp,
             "model_used": self.model
         }

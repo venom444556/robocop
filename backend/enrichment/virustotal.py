@@ -312,3 +312,126 @@ class VirusTotalClient:
             "behaviors": behaviors,
             "source": "virustotal"
         }
+
+    async def get_sigma_matches(self, file_hash: str) -> Dict:
+        """
+        Get Sigma rule matches for a file from VirusTotal.
+
+        Args:
+            file_hash: SHA256 hash of the file
+
+        Returns:
+            Dictionary with matched Sigma rules
+        """
+        result = await self._make_request(f"files/{file_hash}/sigma_analysis")
+
+        if "error" in result:
+            return result
+
+        data = result.get("data", [])
+        matches = []
+        for item in data[:20]:
+            attrs = item.get("attributes", {})
+            matches.append({
+                "rule_name": attrs.get("rule_name"),
+                "rule_level": attrs.get("rule_level"),
+                "rule_description": attrs.get("rule_description"),
+                "rule_author": attrs.get("rule_author"),
+                "match_context": attrs.get("match_context"),
+            })
+
+        return {
+            "hash": file_hash,
+            "sigma_matches": matches,
+            "total_matches": len(matches),
+            "source": "virustotal"
+        }
+
+    async def get_threat_labels(self, file_hash: str) -> Dict:
+        """
+        Extract detailed threat classification labels for a file.
+
+        Args:
+            file_hash: File hash to look up
+
+        Returns:
+            Dictionary with threat labels and classification
+        """
+        result = await self._make_request(f"files/{file_hash}")
+
+        if "error" in result:
+            return result
+
+        attributes = result.get("data", {}).get("attributes", {})
+        classification = attributes.get("popular_threat_classification", {})
+
+        popular_names = []
+        for name_entry in classification.get("popular_threat_name", []):
+            popular_names.append({
+                "name": name_entry.get("value"),
+                "count": name_entry.get("count"),
+            })
+
+        return {
+            "hash": file_hash,
+            "suggested_threat_label": classification.get("suggested_threat_label"),
+            "popular_threat_category": classification.get("popular_threat_category", {}).get("value"),
+            "popular_threat_names": popular_names[:10],
+            "tags": attributes.get("tags", []),
+            "source": "virustotal"
+        }
+
+    async def get_sandbox_verdicts_summary(self, file_hash: str) -> Dict:
+        """
+        Aggregate sandbox verdicts across all available sandboxes.
+
+        Args:
+            file_hash: File hash to look up
+
+        Returns:
+            Dictionary with aggregated sandbox verdict summary
+        """
+        result = await self._make_request(f"files/{file_hash}")
+
+        if "error" in result:
+            return result
+
+        attributes = result.get("data", {}).get("attributes", {})
+        sandbox_verdicts = attributes.get("sandbox_verdicts", {})
+
+        malicious_count = 0
+        suspicious_count = 0
+        clean_count = 0
+        total = len(sandbox_verdicts)
+        verdicts_detail = []
+
+        for sandbox_name, verdict in sandbox_verdicts.items():
+            category = verdict.get("category", "").lower()
+            if "malicious" in category:
+                malicious_count += 1
+            elif "suspicious" in category:
+                suspicious_count += 1
+            else:
+                clean_count += 1
+
+            verdicts_detail.append({
+                "sandbox": sandbox_name,
+                "category": verdict.get("category"),
+                "confidence": verdict.get("confidence"),
+                "malware_names": verdict.get("malware_names", [])
+            })
+
+        confidence_pct = round(
+            malicious_count / max(total, 1) * 100, 1
+        )
+
+        return {
+            "hash": file_hash,
+            "total_sandboxes": total,
+            "malicious_count": malicious_count,
+            "suspicious_count": suspicious_count,
+            "clean_count": clean_count,
+            "malicious_confidence_pct": confidence_pct,
+            "verdicts": verdicts_detail[:10],
+            "source": "virustotal"
+        }

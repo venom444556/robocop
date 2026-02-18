@@ -31,10 +31,40 @@ class GenerateReportRequest(BaseModel):
     format: str = "json"  # "json", "html", "pdf"
 
 
+def _determine_highest_severity(hunt_results: dict) -> str:
+    """Extract the highest severity from threat hunt findings."""
+    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "informational": 4}
+    findings = hunt_results.get("threat_hunt", {}).get("findings", [])
+    highest = "informational"
+    for f in findings:
+        sev = f.get("severity", "informational").lower()
+        if severity_order.get(sev, 5) < severity_order.get(highest, 5):
+            highest = sev
+    return highest
+
+
+def _calculate_confidence(hunt_results: dict) -> int:
+    """Calculate an average confidence score from hunt findings (0-100)."""
+    confidence_map = {"high": 90, "medium": 60, "low": 30}
+    findings = hunt_results.get("threat_hunt", {}).get("findings", [])
+    if not findings:
+        return 0
+    scores = [confidence_map.get(f.get("confidence", "low").lower(), 30) for f in findings]
+    return round(sum(scores) / len(scores))
+
+
 async def generate_report_task(submission_id: int, format: str, db: AsyncSession):
-    """Background task to generate a report."""
+    """Background task to generate an enriched report with threat hunt, MITRE validation,
+    investigation plan, and threat intelligence archival."""
+    import logging
     from utils.report_generator import ReportGenerator
     from agents.report_writer import ReportWriterAgent
+    from utils.mitre_validator import MITREATTACKValidator
+    from agents.threat_hunter import ThreatHuntAgent
+    from agents.investigation import InvestigationAgent
+    from utils.threat_archive import ThreatIntelArchive
+
+    logger = logging.getLogger(__name__)
 
     result = await db.execute(
         select(Submission).filter(Submission.id == submission_id)
@@ -45,7 +75,11 @@ async def generate_report_task(submission_id: int, format: str, db: AsyncSession
 
     try:
         # Get analysis results and IOCs
-        from database import AnalysisResult, IOC, Enrichment
+        from database import (
+            AnalysisResult, IOC, Enrichment,
+            MITRETechniqueValidation, InvestigationPlan,
+            SeverityLevel, TLPMarking
+        )
 
         results = await db.execute(
             select(AnalysisResult).filter(AnalysisResult.submission_id == submission_id)
@@ -65,14 +99,112 @@ async def generate_report_task(submission_id: int, format: str, db: AsyncSession
             )
             enrichment_data[ioc.id] = [e.data_json for e in enrichments.scalars().all()]
 
-        # Use Claude agent to generate narrative
+        # Prepare common data structures
+        ioc_dicts = [{"type": i.type.value, "value": i.value, "context": i.context} for i in iocs]
+        analysis_dicts = [r.results_json for r in analysis_results]
+
+        # --- MITRE ATT&CK Validation ---
+        mitre_validation = {}
+        try:
+            mitre_validator = MITREATTACKValidator()
+            all_techniques = []
+            for r in analysis_results:
+                if isinstance(r.results_json, dict) and r.results_json.get("mitre_techniques"):
+                    all_techniques.extend(r.results_json["mitre_techniques"])
+            if all_techniques:
+                mitre_validation = await mitre_validator.validate_techniques(all_techniques)
+                # Store validations in DB
+                for t in mitre_validation.get("validated", []):
+                    db.add(MITRETechniqueValidation(
+                        submission_id=submission_id,
+                        technique_id=t.get("id", ""),
+                        technique_name=t.get("official_name"),
+                        tactic=t.get("official_tactic"),
+                        is_validated=True,
+                        confidence=t.get("confidence"),
+                        evidence=t.get("evidence")
+                    ))
+                for t in mitre_validation.get("supposition", []) + mitre_validation.get("invalid", []):
+                    db.add(MITRETechniqueValidation(
+                        submission_id=submission_id,
+                        technique_id=t.get("id", "unknown"),
+                        technique_name=t.get("name"),
+                        is_validated=False,
+                        evidence=t.get("reason")
+                    ))
+        except Exception as e:
+            logger.warning(f"MITRE validation failed: {e}")
+
+        # --- Threat Hunt Analysis ---
+        hunt_results = {}
+        try:
+            threat_hunter = ThreatHuntAgent()
+            hunt_results = await threat_hunter.hunt(
+                submission_type=submission.type.value,
+                analysis_data=analysis_dicts,
+                iocs=ioc_dicts,
+                enrichment_data=enrichment_data
+            )
+        except Exception as e:
+            logger.warning(f"Threat hunt failed: {e}")
+
+        # --- Investigation Plan ---
+        investigation_plan = {}
+        try:
+            investigator = InvestigationAgent()
+            investigation_plan = await investigator.generate_investigation_plan(
+                analysis_data=analysis_dicts,
+                iocs=ioc_dicts,
+                mitre_techniques=mitre_validation.get("validated", []),
+                enrichment_data=enrichment_data
+            )
+            # Store in DB
+            if investigation_plan.get("investigation_plan"):
+                db.add(InvestigationPlan(
+                    submission_id=submission_id,
+                    plan_json=investigation_plan
+                ))
+        except Exception as e:
+            logger.warning(f"Investigation plan generation failed: {e}")
+
+        # --- Update Submission with Severity/Confidence ---
+        if hunt_results:
+            highest_severity = _determine_highest_severity(hunt_results)
+            confidence = _calculate_confidence(hunt_results)
+            try:
+                submission.severity = SeverityLevel(highest_severity)
+            except ValueError:
+                pass
+            submission.confidence_score = confidence
+            if not submission.tlp_marking:
+                try:
+                    submission.tlp_marking = TLPMarking(settings.default_tlp_marking)
+                except ValueError:
+                    pass
+
+        # --- Generate Narrative with Enhanced Data ---
         report_writer = ReportWriterAgent()
-        narrative = await report_writer.generate_narrative(
+        full_report = await report_writer.generate_full_report(
             submission=submission,
-            analysis_results=[r.results_json for r in analysis_results],
-            iocs=[{"type": i.type.value, "value": i.value, "context": i.context} for i in iocs],
-            enrichment_data=enrichment_data
+            analysis_results=analysis_dicts,
+            iocs=ioc_dicts,
+            enrichment_data=enrichment_data,
+            reasoning_analysis={},
+            investigation_plan=investigation_plan,
+            threat_hunt_results=hunt_results,
+            mitre_validation=mitre_validation,
+            severity=highest_severity if hunt_results else None,
+            tlp=submission.tlp_marking.value if submission.tlp_marking and hasattr(submission.tlp_marking, 'value') else settings.default_tlp_marking,
         )
+
+        narrative = full_report.get("full_report", "")
+
+        # Build extra data for report generator
+        extra_data = {
+            "mitre_validation": mitre_validation,
+            "investigation_plan": investigation_plan,
+            "threat_hunt_findings": hunt_results.get("threat_hunt", {}),
+        }
 
         # Generate formatted report
         generator = ReportGenerator()
@@ -82,7 +214,8 @@ async def generate_report_task(submission_id: int, format: str, db: AsyncSession
             analysis_results=analysis_results,
             iocs=iocs,
             enrichment_data=enrichment_data,
-            narrative=narrative
+            narrative=narrative,
+            extra_data=extra_data
         )
 
         # Save report
@@ -92,6 +225,24 @@ async def generate_report_task(submission_id: int, format: str, db: AsyncSession
             content=report_content
         )
         db.add(report)
+
+        # --- Archive Threat Intelligence ---
+        try:
+            archiver = ThreatIntelArchive()
+            await archiver.archive_submission_results(
+                submission_id=submission_id,
+                submission_data={
+                    "id": submission.id,
+                    "type": submission.type.value,
+                    "filename": submission.filename,
+                },
+                analysis_results=analysis_dicts,
+                iocs=ioc_dicts,
+                enrichment_data=enrichment_data,
+                findings=hunt_results.get("threat_hunt", {}).get("findings", [])
+            )
+        except Exception as e:
+            logger.warning(f"Threat intel archival failed: {e}")
 
         submission.status = SubmissionStatus.COMPLETE
         submission.completed_at = datetime.utcnow()

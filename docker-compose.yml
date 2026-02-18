@@ -24,9 +24,13 @@ services:
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
       - API_KEY=${API_KEY:-change-this-in-production}
       - N8N_WEBHOOK_BASE_URL=http://n8n:5678/webhook
+      - NVD_API_KEY=${NVD_API_KEY}
+      - DEFAULT_TLP_MARKING=${DEFAULT_TLP_MARKING:-TLP:AMBER}
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
+      - ./data/mitre_cache:/app/data/mitre_cache
+      - ./data/threat_archive:/app/data/threat_archive
     depends_on:
       - n8n
     networks:

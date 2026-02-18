@@ -81,6 +81,21 @@ export const analysisApi = {
     const response = await client.post(`/analysis/${submissionId}/trigger`)
     return response.data
   },
+
+  getMitreValidation: async (submissionId) => {
+    const response = await client.get(`/analysis/${submissionId}/mitre-validation`)
+    return response.data
+  },
+
+  getInvestigationPlan: async (submissionId) => {
+    const response = await client.get(`/analysis/${submissionId}/investigation-plan`)
+    return response.data
+  },
+
+  getThreatHunt: async (submissionId) => {
+    const response = await client.get(`/analysis/${submissionId}/threat-hunt`)
+    return response.data
+  },
 }
 
 // Reports API
