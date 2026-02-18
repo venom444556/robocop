@@ -151,9 +151,9 @@ function SettingsPage() {
 
   const ApiKeyInput = ({ field }) => (
     <div key={field.key}>
-      <label className="block text-sm font-medium text-gray-300 mb-1">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         {field.label}
-        {field.required && <span className="text-red-400 ml-1">*</span>}
+        {field.required && <span className="text-danger-500 ml-1">*</span>}
       </label>
       <div className="relative">
         <input
@@ -181,7 +181,7 @@ function SettingsPage() {
         {field.link && (
           <>
             {' · '}
-            <a href={field.link} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-0.5">
+            <a href={field.link} target="_blank" rel="noopener noreferrer" className="text-primary-600 dark:text-cyan-400 hover:text-primary-500 dark:hover:text-cyan-300 inline-flex items-center gap-0.5">
               Get key <ExternalLink className="h-3 w-3" />
             </a>
           </>
@@ -192,23 +192,23 @@ function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-100 mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Settings</h1>
 
       {/* Success Message */}
       {saved && (
-        <div className="mb-6 p-4 bg-emerald-900/30 border border-emerald-700 rounded-lg flex items-center">
-          <CheckCircle className="h-5 w-5 text-emerald-400 mr-3" />
-          <span className="text-emerald-300">Settings saved successfully</span>
+        <div className="mb-6 p-4 bg-success-50 dark:bg-emerald-900/30 border border-success-200 dark:border-emerald-700 rounded-lg flex items-center">
+          <CheckCircle className="h-5 w-5 text-success-600 dark:text-emerald-400 mr-3" />
+          <span className="text-success-700 dark:text-emerald-300">Settings saved successfully</span>
         </div>
       )}
 
       {/* Core Keys Section */}
       <div className="card">
-        <h2 className="text-lg font-semibold text-gray-100 mb-1 flex items-center">
-          <Shield className="h-5 w-5 mr-2 text-cyan-400" />
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1 flex items-center">
+          <Shield className="h-5 w-5 mr-2 text-primary-600 dark:text-cyan-400" />
           Core Configuration
         </h2>
-        <p className="text-sm text-gray-400 mb-6">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
           Required keys for platform authentication and AI reasoning.
         </p>
 
@@ -225,20 +225,20 @@ function SettingsPage() {
           onClick={() => setEnrichmentExpanded(!enrichmentExpanded)}
           className="w-full flex items-center justify-between"
         >
-          <h2 className="text-lg font-semibold text-gray-100 flex items-center">
-            <Globe className="h-5 w-5 mr-2 text-cyan-400" />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+            <Globe className="h-5 w-5 mr-2 text-primary-600 dark:text-cyan-400" />
             Threat Intelligence Sources ({enrichmentFields.length})
           </h2>
           <span className={`text-gray-400 transition-transform ${enrichmentExpanded ? 'rotate-180' : ''}`}>
             ▾
           </span>
         </button>
-        <p className="text-sm text-gray-400 mt-1 mb-2">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-2">
           All sources offer free tiers. WHOIS lookups require no API key.
         </p>
 
         {enrichmentExpanded && (
-          <div className="space-y-5 mt-4 pt-4 border-t border-gray-700">
+          <div className="space-y-5 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             {enrichmentFields.map((field) => (
               <ApiKeyInput key={field.key} field={field} />
             ))}
@@ -257,13 +257,13 @@ function SettingsPage() {
 
       {/* About Section */}
       <div className="card mt-6">
-        <h2 className="text-lg font-semibold text-gray-100 mb-4 flex items-center">
-          <Info className="h-5 w-5 mr-2 text-cyan-400" />
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+          <Info className="h-5 w-5 mr-2 text-primary-600 dark:text-cyan-400" />
           About
         </h2>
-        <div className="space-y-3 text-sm text-gray-400">
+        <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
           <p>
-            <strong className="text-gray-200">RoboCop</strong> — Reasoning-Orchestration Bot for Cyber Operations Protection.
+            <strong className="text-gray-900 dark:text-gray-200">RoboCop</strong> — Reasoning-Orchestration Bot for Cyber Operations Protection.
             An AI-powered malware analysis platform combining 6 Claude AI agents, 14 threat intelligence sources,
             and automated n8n workflows.
           </p>
@@ -271,21 +271,21 @@ function SettingsPage() {
             Features include multi-layer script decoding, IOC extraction and enrichment, MITRE ATT&CK mapping,
             YARA rule management, and professional report generation.
           </p>
-          <div className="pt-3 border-t border-gray-700 text-xs text-gray-500">
-            <p>Built by <strong className="text-gray-400">Sheldon Spence</strong></p>
+          <div className="pt-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500">
+            <p>Built by <strong className="text-gray-700 dark:text-gray-400">Sheldon Spence</strong></p>
             <p className="mt-1">MIT License · v1.0.0</p>
           </div>
         </div>
       </div>
 
       {/* Security Notice */}
-      <div className="mt-6 mb-8 p-4 bg-amber-900/20 border border-amber-700/50 rounded-lg flex items-start">
-        <AlertCircle className="h-5 w-5 text-amber-400 mr-3 mt-0.5 flex-shrink-0" />
-        <div className="text-sm text-amber-300/80">
-          <p className="font-medium text-amber-300">Security Notice</p>
+      <div className="mt-6 mb-8 p-4 bg-warning-50 dark:bg-amber-900/20 border border-warning-200 dark:border-amber-700/50 rounded-lg flex items-start">
+        <AlertCircle className="h-5 w-5 text-warning-600 dark:text-amber-400 mr-3 mt-0.5 flex-shrink-0" />
+        <div className="text-sm text-warning-700 dark:text-amber-300/80">
+          <p className="font-medium text-warning-700 dark:text-amber-300">Security Notice</p>
           <p>
             API keys entered here are stored in your browser's local storage for convenience.
-            For production deployments, configure all keys server-side via environment variables in <code className="text-amber-400">.env</code>.
+            For production deployments, configure all keys server-side via environment variables in <code className="text-warning-800 dark:text-amber-400 font-mono">.env</code>.
           </p>
         </div>
       </div>
