@@ -162,8 +162,8 @@ Access points:
       |              PostgreSQL 16                   |
       +--+--+--+--+--+--+--+--+--+--+--+--+--+-----+
          |  |  |  |  |  |  |  |  |  |  |  |  |
-        VT Sh UH GSB CP IPQS NVD Un GN AB US OTX MB
-            (13 Threat Intelligence Integrations)
+        VT Sh UH GSB CP IPQS NVD Un GN AB US OTX MB WH
+            (14 Threat Intelligence Integrations)
 ```
 
 ---
@@ -290,6 +290,12 @@ RoboCop handles potentially malicious files. Follow these practices:
 
 ---
 
+## Author
+
+**Sheldon Spence** — [GitHub](https://github.com/venom444556)
+
+---
+
 ## License
 
-MIT License
+MIT License — see [LICENSE](LICENSE)

@@ -2,6 +2,7 @@
 name = "robocop"
 version = "1.0.0"
 description = "RoboCop — Reasoning-Orchestration Bot for Cyber Operations Protection"
+authors = [{name = "Sheldon Spence"}]
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
